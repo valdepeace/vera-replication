@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +20,10 @@ from vera.types import RunConfig, RunRecord
 from vera.workflow import run_workflow
 
 
+RETRY_WAITS_S = (2, 5)
+MAX_CONSECUTIVE_INFRA = 5
+
+
 @dataclass
 class BlockSummary:
     total: int
@@ -28,34 +34,59 @@ class BlockSummary:
     invalid: int = 0
 
 
+class BlockAborted(RuntimeError):
+    """Corte del bloque por fallos de infraestructura consecutivos."""
+
+    def __init__(self, message: str, summary: BlockSummary | None) -> None:
+        super().__init__(message)
+        self.summary = summary
+
+
 def _run_with_retries(config: RunConfig, engine: ChatEngine, adapter: LanguageAdapter,
-                      retries: int) -> RunRecord:
-    record: RunRecord | None = None
-    for _ in range(1 + retries):
+                      retries: int, sleep: Callable[[float], None]) -> RunRecord:
+    """Repite la ejecución completa ante un fallo de infraestructura, con espera creciente."""
+    infra_record: RunRecord | None = None  # último registro infra devuelto por el flujo
+    error: str | None = None
+    total = 1 + retries
+    for attempt in range(total):
+        if attempt:
+            sleep(RETRY_WAITS_S[min(attempt - 1, len(RETRY_WAITS_S) - 1)])
         try:
             record = run_workflow(config, engine, adapter)
-        except Exception:  # noqa: BLE001 - toda excepción del motor o del flujo es infraestructura
-            record = None
-            continue
-        if record.stop_reason != "infra_failure":
-            return record
-    if record is None:
-        record = RunRecord(config=config, attempts=[], accepted=False,
-                           stop_reason="infra_failure", audit=None, valid=False)
-    return record
+        except Exception as exc:  # noqa: BLE001 - toda excepción del motor o del flujo es infraestructura
+            error = f"{type(exc).__name__}: {exc}"
+        else:
+            if record.stop_reason != "infra_failure":
+                return record
+            infra_record, error = record, record.infra_error
+        print(f"[infra] {config.run_id} intento {attempt + 1}/{total}: {error}",
+              file=sys.stderr, flush=True)
+    attempts = infra_record.attempts if infra_record is not None else []
+    return RunRecord(config=config, attempts=attempts, accepted=False,
+                     stop_reason="infra_failure", audit=None, valid=False, infra_error=error)
+
+
+def _is_done(store: RunStore, run_id: str, skip_infra_failed: bool) -> bool:
+    if not store.has(run_id):
+        return False
+    return skip_infra_failed or store.load(run_id).stop_reason != "infra_failure"
 
 
 def execute_block(configs: list[RunConfig], engines: dict[str, ChatEngine],
                   adapters: dict[str, LanguageAdapter], store: RunStore, *,
-                  retries: int = 2,
+                  retries: int = 2, skip_infra_failed: bool = False,
+                  sleep: Callable[[float], None] = time.sleep,
                   on_record: Callable[[int, int, RunRecord], None] | None = None) -> BlockSummary:
+    """Ejecuta lo pendiente; los fallos de infraestructura guardados se repiten salvo
+    skip_infra_failed. MAX_CONSECUTIVE_INFRA fallos seguidos abortan con BlockAborted."""
     summary = BlockSummary(total=len(configs))
+    streak = 0
     for index, config in enumerate(configs):
-        if store.has(config.run_id):
+        if _is_done(store, config.run_id, skip_infra_failed):
             summary.resumed += 1
             continue
         record = _run_with_retries(config, engines[config.model.name],
-                                   adapters[config.task.language], retries)
+                                   adapters[config.task.language], retries, sleep)
         store.save(record)
         summary.executed += 1
         summary.accepted += record.accepted
@@ -63,6 +94,13 @@ def execute_block(configs: list[RunConfig], engines: dict[str, ChatEngine],
         summary.invalid += not record.valid
         if on_record is not None:
             on_record(index, len(configs), record)
+        streak = streak + 1 if record.stop_reason == "infra_failure" else 0
+        if streak >= MAX_CONSECUTIVE_INFRA:
+            raise BlockAborted(
+                f"bloque abortado: {streak} ejecuciones seguidas con fallo de infraestructura "
+                f"(última: {config.run_id}: {record.infra_error}); revise el servidor y reanude",
+                summary,
+            )
     return summary
 
 
@@ -94,6 +132,7 @@ def _write_manifest(path: Path, block: BlockSpec, language: str, session: dict) 
 def run_block(block: BlockSpec, language: str, *, results_root: Path,
               engines: dict[str, ChatEngine], adapters: dict[str, LanguageAdapter],
               limit: int | None = None, dry_run: bool = False,
+              skip_infra_failed: bool = False,
               env_collector: Callable[[list[str]], dict] = collect_env_manifest,
               harness_commit: Callable[[], str | None] = git_head,
               on_record: Callable[[int, int, RunRecord], None] | None = None) -> BlockSummary:
@@ -110,4 +149,4 @@ def run_block(block: BlockSpec, language: str, *, results_root: Path,
         "env": env_collector(list(block.models)),
     })
     return execute_block(configs, engines, adapters, RunStore(out / "records"),
-                         on_record=on_record)
+                         skip_infra_failed=skip_infra_failed, on_record=on_record)

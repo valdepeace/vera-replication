@@ -202,3 +202,18 @@ def test_repair_diagnostic_is_truncated_in_workflow():
     repair_text = "\n".join(m["content"] for m in engine.calls[1]["messages"])
     assert repair_text.count("E" * 4000) == 1
     assert "E" * 4001 not in repair_text
+
+
+def test_engine_error_is_described_in_infra_error():
+    engine = FakeEngine([EngineError("timeout", "sin respuesta")])
+    rec = run_workflow(config(Condition.BASELINE), engine, FakeAdapter([]))
+    assert rec.stop_reason == "infra_failure"
+    assert rec.infra_error == "EngineError(timeout): sin respuesta"
+
+
+def test_validation_infra_failure_is_described_in_infra_error():
+    infra = ValidationResult(passed=False, diagnostic="Maven agotó el tiempo", seconds=1.0,
+                             infra_failure=True)
+    rec = run_workflow(config(Condition.BASELINE), FakeEngine([ok()]), FakeAdapter([infra]))
+    assert rec.stop_reason == "infra_failure"
+    assert rec.infra_error == "validation: Maven agotó el tiempo"

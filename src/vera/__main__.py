@@ -31,6 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--language", choices=("java", "python", "node"), required=True)
     run.add_argument("--limit", type=int, default=None)
     run.add_argument("--dry-run", action="store_true")
+    run.add_argument("--skip-infra-failed", action="store_true",
+                     help="no repetir las ejecuciones guardadas con fallo de infraestructura")
     args = parser.parse_args(argv)
 
     if args.language not in ADAPTER_LANGUAGES:
@@ -41,16 +43,20 @@ def main(argv: list[str] | None = None) -> int:
 
     from vera.engines.ollama import OllamaEngine
     from vera.models import MODELS
-    from vera.runner import run_block
+    from vera import runner
 
     block = BLOCKS[args.block]
     engines = {name: OllamaEngine(MODELS[name].base_url) for name in block.models}
-    summary = run_block(
-        block, args.language, results_root=REPO_ROOT / "results",
-        engines=engines, adapters={"java": _java_adapter()},
-        limit=args.limit, dry_run=args.dry_run,
-        on_record=_report_progress,
-    )
+    try:
+        summary = runner.run_block(
+            block, args.language, results_root=REPO_ROOT / "results",
+            engines=engines, adapters={"java": _java_adapter()},
+            limit=args.limit, dry_run=args.dry_run, skip_infra_failed=args.skip_infra_failed,
+            on_record=_report_progress,
+        )
+    except runner.BlockAborted as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     if args.dry_run:
         print(f"{summary.total} ejecuciones planificadas")
     else:

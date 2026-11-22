@@ -45,3 +45,11 @@ def test_run_id_format():
         make_config().run_id
         == "determinista/llama3.1:8b/java-StringUtils-isEmpty/baseline/r0"
     )
+
+
+def test_run_record_infra_error_defaults_to_none():
+    from vera.types import RunRecord
+
+    rec = RunRecord(config=make_config(), attempts=[], accepted=False,
+                    stop_reason="budget_exhausted", audit=None, valid=True)
+    assert rec.infra_error is None

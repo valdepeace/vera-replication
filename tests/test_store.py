@@ -92,3 +92,26 @@ def test_token_totals_sum_attempts():
     rec = make_record()
     assert rec.total_prompt_tokens == 300
     assert rec.total_completion_tokens == 120
+
+
+def test_roundtrip_preserves_infra_error(tmp_path):
+    store = RunStore(tmp_path)
+    rec = dataclasses.replace(make_record(), accepted=False, stop_reason="infra_failure",
+                              audit=None, valid=False, infra_error="TypeError: json raro")
+    store.save(rec)
+    assert next(store.load_all()).infra_error == "TypeError: json raro"
+    assert store.load(rec.config.run_id) == rec
+
+
+def test_records_without_infra_error_field_still_load(tmp_path):
+    import json
+
+    store = RunStore(tmp_path)
+    rec = make_record()
+    store.save(rec)
+    path = next(tmp_path.glob("*.json"))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["infra_error"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    loaded = next(store.load_all())
+    assert loaded.infra_error is None and loaded == rec

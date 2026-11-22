@@ -62,6 +62,7 @@ def _record_from_dict(d: dict) -> RunConfig | RunRecord:
         stop_reason=d["stop_reason"],
         audit=AuditOutcome(audit) if audit is not None else None,
         valid=d["valid"],
+        infra_error=d.get("infra_error"),  # ausente en registros anteriores al campo
     )
 
 
@@ -84,6 +85,9 @@ class RunStore:
             encoding="utf-8",
         )
         os.replace(tmp, target)
+
+    def load(self, run_id: str) -> RunRecord:
+        return _record_from_dict(json.loads(self._path(run_id).read_text(encoding="utf-8")))
 
     def load_all(self) -> Iterator[RunRecord]:
         if not self.root.is_dir():

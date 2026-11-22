@@ -96,6 +96,8 @@ class RunRecord:
     stop_reason: Literal["accepted", "budget_exhausted", "infra_failure"]
     audit: AuditOutcome | None
     valid: bool
+    # Tipo y mensaje del último fallo de infraestructura; None si no lo hubo.
+    infra_error: str | None = None
 
     @property
     def total_prompt_tokens(self) -> int:

@@ -16,7 +16,7 @@ _FORMAT_DIAGNOSTIC = (
 
 
 def _record(config: RunConfig, attempts: list[Attempt], stop_reason: str,
-            audit: AuditOutcome | None = None) -> RunRecord:
+            audit: AuditOutcome | None = None, infra_error: str | None = None) -> RunRecord:
     return RunRecord(
         config=config,
         attempts=attempts,
@@ -24,6 +24,7 @@ def _record(config: RunConfig, attempts: list[Attempt], stop_reason: str,
         stop_reason=stop_reason,  # type: ignore[arg-type]
         audit=audit,
         valid=stop_reason != "infra_failure",
+        infra_error=infra_error,
     )
 
 
@@ -51,8 +52,9 @@ def run_workflow(config: RunConfig, engine: ChatEngine, adapter: LanguageAdapter
             result = engine.chat(
                 messages, model=config.model.name, options=options, json_schema=OUTPUT_SCHEMA
             )
-        except EngineError:
-            return _record(config, attempts, "infra_failure")
+        except EngineError as exc:
+            return _record(config, attempts, "infra_failure",
+                           infra_error=f"EngineError({exc.kind}): {exc}")
 
         parsed = parse_model_output(result.text)
         parse_ok = parsed.error is None and not result.truncated
@@ -82,7 +84,8 @@ def run_workflow(config: RunConfig, engine: ChatEngine, adapter: LanguageAdapter
             previous_code = parsed.code or result.text
             continue
         if validation.infra_failure:
-            return _record(config, attempts, "infra_failure")
+            return _record(config, attempts, "infra_failure",
+                           infra_error=f"validation: {validation.diagnostic[:500]}")
         if validation.passed:
             assert parsed.code is not None
             return _record(config, attempts, "accepted", adapter.audit(task, parsed.code))

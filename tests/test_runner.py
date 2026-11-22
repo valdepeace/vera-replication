@@ -6,7 +6,7 @@ from vera.__main__ import main
 from vera.blocks import DETERMINISTIC, expand_block, load_tasks
 from vera.engines.base import ChatResult, EngineError
 from vera.prompts import PROMPT_VERSION
-from vera.runner import block_dir, execute_block, run_block
+from vera.runner import BlockAborted, block_dir, execute_block, run_block
 from vera.store import RunStore
 from vera.types import AuditOutcome, ValidationResult
 
@@ -46,6 +46,19 @@ class FakeAdapter:
         return AuditOutcome.REAL
 
 
+class SleepRecorder:
+    def __init__(self):
+        self.waits = []
+
+    def __call__(self, seconds):
+        self.waits.append(seconds)
+
+
+def run(configs, engine, store, **kw):
+    kw.setdefault("sleep", SleepRecorder())
+    return execute_block(configs, engines_for(configs, engine), {"java": FakeAdapter()}, store, **kw)
+
+
 def det_configs(n):
     return expand_block(DETERMINISTIC, TASKS)[:n]
 
@@ -83,7 +96,9 @@ def test_infra_failure_retried_twice_then_succeeds(tmp_path):
     store = RunStore(tmp_path / "records")
     configs = det_configs(1)
     engine = FakeEngine([EngineError("timeout"), EngineError("connection"), ok()])
-    summary = execute_block(configs, engines_for(configs, engine), {"java": FakeAdapter()}, store)
+    sleep = SleepRecorder()
+    summary = run(configs, engine, store, sleep=sleep)
+    assert sleep.waits == [2, 5]
     record = next(store.load_all())
     assert record.valid is True and record.accepted is True
     assert engine.calls == 3
@@ -94,34 +109,39 @@ def test_unexpected_exception_is_treated_as_infra_failure(tmp_path):
     store = RunStore(tmp_path / "records")
     configs = det_configs(1)
     engine = FakeEngine([TypeError("json raro"), ok()])
-    execute_block(configs, engines_for(configs, engine), {"java": FakeAdapter()}, store)
+    run(configs, engine, store)
     record = next(store.load_all())
-    assert record.valid is True and engine.calls == 2
+    assert record.valid is True and engine.calls == 2 and record.infra_error is None
 
 
 def test_infra_failure_three_times_marks_invalid(tmp_path):
     store = RunStore(tmp_path / "records")
     configs = det_configs(1)
-    engine = FakeEngine([EngineError("server"), TypeError("x"), EngineError("server"), ok()])
-    summary = execute_block(configs, engines_for(configs, engine), {"java": FakeAdapter()}, store)
+    engine = FakeEngine([EngineError("server"), EngineError("server"), TypeError("x"), ok()])
+    sleep = SleepRecorder()
+    summary = run(configs, engine, store, sleep=sleep)
     record = next(store.load_all())
     assert record.valid is False and record.stop_reason == "infra_failure"
     assert record.accepted is False
+    assert record.infra_error == "TypeError: x"
     assert engine.calls == 3
+    assert sleep.waits == [2, 5]
     assert (summary.executed, summary.accepted, summary.valid, summary.invalid) == (1, 0, 0, 1)
 
 
 def test_dry_run_executes_nothing_and_reports_count(tmp_path):
     engine = FakeEngine()
+    engines = {name: engine for name in DETERMINISTIC.models}
     summary = run_block(DETERMINISTIC, "java", results_root=tmp_path / "results",
-                        engines={}, adapters={}, dry_run=True,
+                        engines=engines, adapters={"java": FakeAdapter()}, dry_run=True,
                         env_collector=lambda names: pytest.fail("no debe recoger el entorno"))
     assert summary.total == 80 and summary.executed == 0
     assert engine.calls == 0
     assert not (tmp_path / "results").exists()
     limited = run_block(DETERMINISTIC, "java", results_root=tmp_path / "results",
-                        engines={}, adapters={}, dry_run=True, limit=5)
+                        engines=engines, adapters={"java": FakeAdapter()}, dry_run=True, limit=5)
     assert limited.total == 5
+    assert engine.calls == 0
 
 
 def test_block_writes_manifest_with_env_and_prompt_version(tmp_path):
@@ -156,3 +176,89 @@ def test_cli_without_adapter_exits_with_clear_error(capsys):
         main(["run", "--block", "determinista", "--language", "python", "--dry-run"])
     assert exc.value.code == 2
     assert "python" in capsys.readouterr().err
+
+
+class RepairAdapter(FakeAdapter):
+    """Adaptador cuya primera validación es un fallo de infraestructura con intentos."""
+
+    def __init__(self, infra_first):
+        super().__init__()
+        self.infra_first = infra_first
+
+    def validate(self, task, code):
+        self.validated += 1
+        if self.validated <= self.infra_first:
+            return ValidationResult(passed=False, diagnostic="maven caído", seconds=0.1,
+                                    infra_failure=True)
+        return PASS
+
+
+def test_exception_after_infra_record_keeps_earlier_attempts(tmp_path, capsys):
+    store = RunStore(tmp_path / "records")
+    configs = det_configs(1)
+    engine = FakeEngine([ok(), ok(), RuntimeError("se cayó")])
+    execute_block(configs, engines_for(configs, engine), {"java": RepairAdapter(2)}, store,
+                  sleep=SleepRecorder())
+    record = next(store.load_all())
+    assert record.stop_reason == "infra_failure" and record.valid is False
+    assert len(record.attempts) == 1 and record.attempts[0].validation.infra_failure
+    assert record.infra_error == "RuntimeError: se cayó"
+    err = capsys.readouterr().err
+    assert "RuntimeError: se cayó" in err and "maven caído" in err
+
+
+def test_resume_reexecutes_infra_failures(tmp_path):
+    store = RunStore(tmp_path / "records")
+    configs = det_configs(2)
+    run(configs[:1], FakeEngine([EngineError("server")] * 3), store)
+    assert next(store.load_all()).valid is False
+    engine = FakeEngine()
+    summary = run(configs, engine, store)
+    assert (summary.executed, summary.resumed, summary.valid, summary.invalid) == (2, 0, 2, 0)
+    assert engine.calls == 2
+    records = list(store.load_all())
+    assert len(records) == 2 and all(r.valid for r in records)
+
+
+def test_skip_infra_failed_keeps_them(tmp_path):
+    store = RunStore(tmp_path / "records")
+    configs = det_configs(2)
+    run(configs[:1], FakeEngine([EngineError("server")] * 3), store)
+    engine = FakeEngine()
+    summary = run(configs, engine, store, skip_infra_failed=True)
+    assert (summary.executed, summary.resumed) == (1, 1)
+    assert engine.calls == 1
+
+
+def test_five_consecutive_infra_failures_abort_block(tmp_path):
+    store = RunStore(tmp_path / "records")
+    configs = det_configs(8)
+    engine = FakeEngine([EngineError("connection")] * 100)
+    with pytest.raises(BlockAborted) as exc:
+        run(configs, engine, store)
+    assert "5" in str(exc.value)
+    assert exc.value.summary.executed == 5 and exc.value.summary.invalid == 5
+    assert len(list(store.load_all())) == 5
+    assert engine.calls == 15
+
+
+def test_infra_streak_resets_after_a_valid_run(tmp_path):
+    store = RunStore(tmp_path / "records")
+    configs = det_configs(9)
+    failing = [EngineError("connection")] * 12
+    engine = FakeEngine(failing + [ok()] + failing)  # 4 inválidas, 1 válida, 4 inválidas
+    summary = run(configs, engine, store)
+    assert (summary.executed, summary.valid, summary.invalid) == (9, 1, 8)
+
+
+def test_cli_reports_block_aborted_with_nonzero_exit(monkeypatch, capsys):
+    import vera.runner
+
+    def boom(*args, **kwargs):
+        raise BlockAborted("servidor caído: 5 fallos de infraestructura seguidos", None)
+
+    monkeypatch.setattr(vera.runner, "run_block", boom)
+    code = main(["run", "--block", "determinista", "--language", "java", "--limit", "1",
+                 "--skip-infra-failed"])
+    assert code == 1
+    assert "servidor caído" in capsys.readouterr().err
