@@ -20,4 +20,7 @@ where = ["src"]
 testpaths = ["tests"]
 addopts = "-p no:cacheprovider"
 pythonpath = ["src"]
-markers = ["integration: pruebas que requieren servicios externos"]
+markers = [
+    "integration: pruebas que requieren servicios externos",
+    "analysis: pruebas que requieren el extra analysis",
+]
