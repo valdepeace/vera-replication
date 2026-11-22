@@ -14,7 +14,9 @@ _TEST_ANNOTATION_RE = re.compile(
 # Cabe señalar que la cabecera de un método termina en ")" (con un "throws"
 # opcional) justo antes de su llave; así se esquivan las llaves que viven
 # dentro de los argumentos de anotaciones como @ValueSource(strings = {...}).
-_METHOD_OPEN_RE = re.compile(r"\)\s*(?:throws\s+[\w$.,\s]+?)?\s*\{")
+_METHOD_OPEN_RE = re.compile(
+    r"\)\s*(?:throws\s+[\w$.]+(?:\s*,\s*[\w$.]+)*\s*)?\{"
+)
 _ASSERT_RE = re.compile(r"(?<![\w$])assert\w*\s*\(")
 _ASSIGN_RE = re.compile(r"(?<![\w$])([A-Za-z_$][\w$]*)\s*=(?!=)")
 

@@ -1,3 +1,7 @@
+import time
+
+import pytest
+
 from vera.audit import audit_java
 from vera.types import AuditOutcome
 
@@ -109,6 +113,29 @@ def test_parameterized_test_with_brace_annotation_counts():
         "    @ParameterizedTest\n"
         "    @ValueSource(strings = {\"\", \"\"})\n"
         "    void generated(String s) { assertTrue(StringUtils.isEmpty(s)); }\n"
+        "}\n"
+    )
+    assert _audit(code) is AuditOutcome.REAL
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["class X { @Test void a() throws ", "class X { @Test void a() "],
+)
+def test_pathological_whitespace_returns_quickly(prefix):
+    code = prefix + " " * 20000
+    start = time.perf_counter()
+    outcome = audit_java(code, FOCAL, CONTAINER)
+    assert time.perf_counter() - start < 1.0
+    assert isinstance(outcome, AuditOutcome)
+
+
+def test_throws_clause_with_several_exceptions_counts():
+    code = (
+        "class StringUtilsIsEmptyTest {\n"
+        "    @Test void generated() throws java.io.IOException , Exception {\n"
+        "        assertTrue(StringUtils.isEmpty(\"\"));\n"
+        "    }\n"
         "}\n"
     )
     assert _audit(code) is AuditOutcome.REAL
