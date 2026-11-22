@@ -145,3 +145,23 @@ def test_real_timeout_is_infrastructure(tmp_path):
     a = PythonPytestAdapter(make_project(tmp_path / "proj"), Path(sys.executable), timeout_s=2)
     result = a.validate(make_task(), "import time\n\ndef test_slow():\n    time.sleep(30)\n")
     assert result.infra_failure and not result.passed
+
+
+@pytest.mark.parametrize("code", [-9, -1, 3221225477])
+def test_process_killed_by_os_is_infrastructure(tmp_path, code):
+    result = adapter(tmp_path, FakeRunner(returncode=code, stdout="")).validate(make_task(), "x")
+    assert result.infra_failure and not result.passed
+
+
+def test_missing_pytest_module_is_infrastructure(tmp_path):
+    out = "C:\\py\\python.exe: No module named pytest\n"
+    result = adapter(tmp_path, FakeRunner(returncode=1, stdout=out)).validate(make_task(), "x")
+    assert result.infra_failure and not result.passed
+    assert "No module named pytest" in result.diagnostic
+
+
+@pytest.mark.parametrize("code", [1, 2])
+def test_ordinary_failures_stay_model_failures(tmp_path, code):
+    result = adapter(tmp_path, FakeRunner(returncode=code, stdout="E   assert 1 == 2\n")).validate(
+        make_task(), "x")
+    assert not result.infra_failure and not result.passed

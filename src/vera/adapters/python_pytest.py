@@ -25,6 +25,10 @@ _IGNORED = shutil.ignore_patterns(
 # que la auditoría clasificará); 3 = error interno; 4 = uso incorrecto.
 _NO_TESTS = 5
 _INFRA_CODES = {3, 4}
+# Un proceso abatido por el sistema (falta de memoria, señal) devuelve un código
+# negativo o desmesurado (p. ej. NTSTATUS en Windows); pytest solo emplea 0 a 5.
+_MAX_SANE_CODE = 255
+_MISSING_PYTEST = "No module named pytest"
 _USEFUL_RE = re.compile(
     r"^(?:E\s|>\s|FAILED\b|ERROR\b|\S+\.py:\d+:|=+ .*(?:failed|error|passed).* =+$"
     r"|\d+ (?:failed|passed|error))"
@@ -82,9 +86,16 @@ class PythonPytestAdapter:
         seconds = time.perf_counter() - started
         if proc.returncode in (0, _NO_TESTS):
             return ValidationResult(passed=True, diagnostic="", seconds=seconds)
-        diagnostic = _cap(filter_pytest_output(proc.stdout or "", proc.returncode))
+        output = proc.stdout or ""
+        diagnostic = _cap(filter_pytest_output(output, proc.returncode))
+        infra = (
+            proc.returncode in _INFRA_CODES
+            or proc.returncode < 0
+            or proc.returncode > _MAX_SANE_CODE
+            or _MISSING_PYTEST in output
+        )
         return ValidationResult(passed=False, diagnostic=diagnostic, seconds=seconds,
-                                infra_failure=proc.returncode in _INFRA_CODES)
+                                infra_failure=infra)
 
     def audit(self, task: Task, code: str) -> AuditOutcome:
         return audit_python(code, task.focal_name)

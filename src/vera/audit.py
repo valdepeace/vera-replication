@@ -154,6 +154,18 @@ def _names(node: ast.AST) -> set[str]:
     return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
 
 
+def _local_names(target: ast.expr) -> set[str]:
+    """Variables locales ligadas por un destino: nombres simples y su
+    desempaquetado; jamás atributos ni subíndices (self.x no es una local)."""
+    if isinstance(target, ast.Name):
+        return {target.id}
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return set().union(*(_local_names(e) for e in target.elts))
+    if isinstance(target, ast.Starred):
+        return _local_names(target.value)
+    return set()
+
+
 def _is_raises(node: ast.expr) -> bool:
     return isinstance(node, ast.Call) and _call_name(node.func) == "raises"
 
@@ -222,7 +234,7 @@ def audit_python(code: str, focal_name: str) -> AuditOutcome:
             if isinstance(n, (ast.Assign, ast.AnnAssign)) and n.value is not None \
                     and _calls_focal(n.value, focal_name):
                 targets = n.targets if isinstance(n, ast.Assign) else [n.target]
-                assigned = set().union(*(_names(t) for t in targets))
+                assigned = set().union(*(_local_names(t) for t in targets))
                 end = getattr(n, "end_lineno", n.lineno)
                 if any(pos > end and assigned & _names(node) for pos, node in checks):
                     return AuditOutcome.REAL

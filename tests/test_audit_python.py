@@ -98,3 +98,28 @@ def test_focal_only_in_a_non_test_function_is_no_focal():
 
 def test_none_code_is_empty():
     assert audit_python(None, F) is AuditOutcome.EMPTY
+
+
+def test_attribute_target_does_not_taint_self_asserts():
+    # self.x = focal(...) no asigna una variable local: self.assertTrue(True)
+    # ejerce un assert, pero no el método focal, luego es NO_FOCAL.
+    code = (
+        "import unittest\n\nclass TestX(unittest.TestCase):\n"
+        "    def test_a(self):\n        self.x = slugify('A')\n        self.assertTrue(True)\n"
+    )
+    assert audit(code) is AuditOutcome.NO_FOCAL
+
+
+def test_subscript_target_does_not_taint():
+    code = "def test_x():\n    d = {}\n    d['k'] = slugify('A')\n    assert d is not None\n"
+    assert audit(code) is AuditOutcome.NO_FOCAL
+
+
+def test_tuple_unpacking_of_names_is_followed():
+    code = "def test_x():\n    a, b = slugify('A'), 1\n    assert a == 'a'\n"
+    assert audit(code) is AuditOutcome.REAL
+
+
+def test_plain_variable_hop_stays_real():
+    code = "def test_x():\n    r = slugify('A')\n    assert r == 'a'\n"
+    assert audit(code) is AuditOutcome.REAL
