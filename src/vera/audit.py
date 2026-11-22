@@ -134,6 +134,14 @@ def audit_java(code: str, focal_name: str, container: str) -> AuditOutcome:
 
 
 _DEF_RE = re.compile(r"^\s*(?:async\s+def|def|class)\s", re.MULTILINE)
+_FUNC = (ast.FunctionDef, ast.AsyncFunctionDef)
+_SCOPES = (ast.Lambda, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+# Llamadas tras las cuales nada más se ejecuta (o el test no llega a afirmar).
+_TERMINATING = {"skip", "skipTest", "importorskip", "xfail", "exit", "_exit", "quit", "fail"}
+_SWALLOWED = {"AssertionError", "Exception", "BaseException"}
+_DISABLING = {"skip", "xfail", "expectedFailure"}
+_CONDITIONAL_DISABLING = {"skipif", "skipIf", "skipUnless"}
 
 
 def _call_name(node: ast.expr) -> str | None:
@@ -142,6 +150,16 @@ def _call_name(node: ast.expr) -> str | None:
     if isinstance(node, ast.Attribute):
         return node.attr
     return None
+
+
+def _expr_nodes(node: ast.AST):
+    """Recorre una expresión sin entrar en funciones, lambdas ni clases anidadas,
+    cuyo cuerpo no se ejecuta por el mero hecho de definirlas."""
+    stack = [node]
+    while stack:
+        n = stack.pop()
+        yield n
+        stack.extend(c for c in ast.iter_child_nodes(n) if not isinstance(c, _SCOPES))
 
 
 def _calls_focal(node: ast.AST, focal_name: str) -> bool:
@@ -167,7 +185,14 @@ def _local_names(target: ast.expr) -> set[str]:
 
 
 def _is_raises(node: ast.expr) -> bool:
-    return isinstance(node, ast.Call) and _call_name(node.func) == "raises"
+    if not isinstance(node, ast.Call):
+        return False
+    name = _call_name(node.func) or ""
+    return name == "raises" or name.startswith("assertRaises")
+
+
+def _is_suppress(node: ast.expr) -> bool:
+    return isinstance(node, ast.Call) and _call_name(node.func) == "suppress"
 
 
 def _is_self_assert(node: ast.AST) -> bool:
@@ -180,36 +205,214 @@ def _is_self_assert(node: ast.AST) -> bool:
     )
 
 
-def _collected_tests(tree: ast.Module) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
-    """Funciones que pytest registraría: test* de módulo y test* de clases Test*
-    o derivadas de TestCase."""
-    func = (ast.FunctionDef, ast.AsyncFunctionDef)
-    tests = [n for n in tree.body if isinstance(n, func) and n.name.startswith("test")]
+def _const(test: ast.expr) -> bool | None:
+    """Valor de verdad de una condición literal; None si no es decidible."""
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        inner = _const(test.operand)
+        return None if inner is None else not inner
+    try:
+        return bool(ast.literal_eval(test))
+    except (ValueError, TypeError, SyntaxError):
+        return None
+
+
+def _is_terminator(stmt: ast.stmt) -> bool:
+    return (
+        isinstance(stmt, ast.Expr)
+        and isinstance(stmt.value, ast.Call)
+        and _call_name(stmt.value.func) in _TERMINATING
+    )
+
+
+def _decorator_disables(dec: ast.expr) -> bool:
+    base = dec.func if isinstance(dec, ast.Call) else dec
+    name = _call_name(base)
+    if name in _DISABLING:
+        return True
+    if name in _CONDITIONAL_DISABLING:
+        if not (isinstance(dec, ast.Call) and dec.args):
+            return True
+        cond = _const(dec.args[0])
+        if cond is None:
+            return True  # Cabe señalar que ante la duda se descuenta el test.
+        return (not cond) if name == "skipUnless" else cond
+    return False
+
+
+def _disabled(node: ast.AST) -> bool:
+    return any(_decorator_disables(d) for d in getattr(node, "decorator_list", []))
+
+
+def _module_disabled(tree: ast.Module) -> bool:
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Raise) or _is_terminator(stmt):
+            return True
+        if isinstance(stmt, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "pytestmark" for t in stmt.targets
+        ):
+            marks = [n for n in ast.walk(stmt.value) if isinstance(n, (ast.Name, ast.Attribute))]
+            if any(_call_name(m) in _DISABLING | _CONDITIONAL_DISABLING for m in marks):
+                return True
+    return False
+
+
+def _collected_tests(tree: ast.Module) -> list[ast.FunctionDef]:
+    """Funciones que pytest registraría y que de veras se ejecutan: test* de
+    módulo y test* de clases Test* o derivadas de TestCase, salvo las anuladas por
+    decoradores y las asíncronas (sin complemento no se ejecutan)."""
+    tests = [n for n in tree.body
+             if isinstance(n, ast.FunctionDef) and n.name.startswith("test") and not _disabled(n)]
     for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
         bases = {_call_name(b) for b in cls.bases}
-        if cls.name.startswith("Test") or "TestCase" in bases:
-            tests += [n for n in cls.body if isinstance(n, func) and n.name.startswith("test")]
+        if (cls.name.startswith("Test") or "TestCase" in bases) and not _disabled(cls):
+            tests += [n for n in cls.body
+                      if isinstance(n, ast.FunctionDef) and n.name.startswith("test")
+                      and not _disabled(n)]
     return tests
 
 
-def _python_checks(test: ast.AST) -> list[tuple[int, ast.AST]]:
-    """Aserciones de un test con su posición: assert, self.assert*() y los
-    bloques with pytest.raises (cuyo cuerpo es lo aseverado)."""
-    found: list[tuple[int, ast.AST]] = []
-    for n in ast.walk(test):
-        if isinstance(n, ast.Assert):
-            found.append((n.lineno, n.test))
-        elif _is_self_assert(n):
-            found.append((n.lineno, n))
-        elif isinstance(n, (ast.With, ast.AsyncWith)) and any(
-            _is_raises(item.context_expr) for item in n.items
-        ):
-            found.append((n.lineno, n))
-    return found
+class _Live:
+    """Lo alcanzable de un test: aserciones, asignaciones y llamadas."""
+
+    def __init__(self) -> None:
+        self.checks: list[tuple[int, ast.AST]] = []
+        self.assigns: list[tuple[int, set[str], ast.expr]] = []
+        self.stmts: list[ast.stmt] = []
+        self.called: set[str] = set()
+        self.defs: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        self.done: set[str] = set()
+
+    def scan(self, node: ast.AST | None) -> None:
+        if node is None:
+            return
+        for n in _expr_nodes(node):
+            if isinstance(n, ast.Call):
+                name = _call_name(n.func) if isinstance(n.func, ast.Name) else None
+                if name:
+                    self.called.add(name)
+                if _is_self_assert(n):
+                    self.checks.append((n.lineno, n))
+
+
+def _swallows(handler: ast.ExceptHandler) -> bool:
+    if any(isinstance(s, ast.Raise) for s in handler.body):
+        return False
+    if handler.type is None:
+        return True
+    types = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return any(_call_name(t) in _SWALLOWED for t in types)
+
+
+def _walk(live: _Live, stmts: list[ast.stmt]) -> str | None:
+    """Recorre las sentencias alcanzables. Devuelve 'hard' si el flujo no continúa
+    (return, raise, skip, exit; también si solo una rama lo hace: ante la duda no
+    se afirma nada), 'loop' tras break/continue, o None."""
+    for s in stmts:
+        state: str | None = None
+        if isinstance(s, _FUNC):
+            live.defs[s.name] = s
+        elif isinstance(s, ast.ClassDef):
+            pass
+        elif isinstance(s, ast.Assert):
+            live.checks.append((s.lineno, s.test))
+            live.stmts.append(s)
+            live.scan(s.test)
+            live.scan(s.msg)
+        elif isinstance(s, (ast.Return, ast.Raise)):
+            live.scan(s)
+            state = "hard"
+        elif isinstance(s, (ast.Break, ast.Continue)):
+            state = "loop"
+        elif isinstance(s, ast.If):
+            state = _walk_if(live, s)
+        elif isinstance(s, (ast.For, ast.AsyncFor)):
+            live.scan(s.iter)
+            empty = isinstance(s.iter, (ast.List, ast.Tuple, ast.Set, ast.Dict)) and not (
+                s.iter.elts if not isinstance(s.iter, ast.Dict) else s.iter.keys
+            )
+            if not empty:
+                _walk(live, s.body)
+        elif isinstance(s, ast.While):
+            live.scan(s.test)
+            if _const(s.test) is not False:
+                _walk(live, s.body)
+        elif isinstance(s, (ast.With, ast.AsyncWith)):
+            state = _walk_with(live, s)
+        elif isinstance(s, ast.Try):
+            state = _walk_try(live, s)
+        elif isinstance(s, ast.Match):
+            live.scan(s.subject)  # ramas ignoradas: se descuentan ante la duda
+        else:
+            live.scan(s)
+            live.stmts.append(s)
+            if isinstance(s, (ast.Assign, ast.AnnAssign)) and s.value is not None:
+                targets = s.targets if isinstance(s, ast.Assign) else [s.target]
+                names = set().union(*(_local_names(t) for t in targets))
+                live.assigns.append((getattr(s, "end_lineno", s.lineno), names, s.value))
+            if _is_terminator(s):
+                state = "hard"
+        if state:
+            return state
+    return None
+
+
+def _walk_if(live: _Live, s: ast.If) -> str | None:
+    truth = _const(s.test)
+    if truth is True:
+        return _walk(live, s.body)
+    if truth is False:
+        return _walk(live, s.orelse)
+    live.scan(s.test)
+    body, other = _walk(live, s.body), _walk(live, s.orelse)
+    if "hard" in (body, other):
+        return "hard"
+    return "loop" if body == other == "loop" else None
+
+
+def _walk_with(live: _Live, s: ast.With | ast.AsyncWith) -> str | None:
+    for item in s.items:
+        live.scan(item.context_expr)
+    if any(_is_suppress(i.context_expr) for i in s.items):
+        return None  # el contexto se traga el AssertionError
+    raises = any(_is_raises(i.context_expr) for i in s.items)
+    start = len(live.stmts)
+    state = _walk(live, s.body)
+    if raises:
+        live.checks.append((s.lineno, ast.Module(body=live.stmts[start:], type_ignores=[])))
+        return None
+    return state
+
+
+def _walk_try(live: _Live, s: ast.Try) -> str | None:
+    start = len(live.checks)
+    state = _walk(live, s.body)
+    if any(_swallows(h) for h in s.handlers):
+        del live.checks[start:]
+        state = None
+    elif s.handlers:
+        state = None
+    if state is None and s.orelse:
+        state = _walk(live, s.orelse)
+    fin = _walk(live, s.finalbody) if s.finalbody else None
+    return state or fin
+
+
+def _live_test(test: ast.FunctionDef) -> _Live:
+    live = _Live()
+    _walk(live, test.body)
+    while True:
+        pending = [n for n in live.called if n in live.defs and n not in live.done]
+        if not pending:
+            return live
+        for name in pending:
+            live.done.add(name)
+            _walk(live, live.defs[name].body)
 
 
 def audit_python(code: str, focal_name: str) -> AuditOutcome:
-    """Clasifica un test Python en las cinco categorías de la tesis."""
+    """Clasifica un test Python en las cinco categorías de la tesis. Se cuenta
+    como aserción solo lo que ciertamente se ejecuta; ante la duda, se descuenta
+    (jamás se infla REAL)."""
     code = code or ""
     try:
         tree = ast.parse(code)
@@ -220,24 +423,21 @@ def audit_python(code: str, focal_name: str) -> AuditOutcome:
     if not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
                for n in ast.walk(tree)):
         return AuditOutcome.EMPTY
-    tests = _collected_tests(tree)
+    tests = [] if _module_disabled(tree) else _collected_tests(tree)
     if not tests:
         return AuditOutcome.TEST_FREE
-    per_test = [(t, _python_checks(t)) for t in tests]
-    if not any(checks for _, checks in per_test):
+    lives = [_live_test(t) for t in tests]
+    if not any(live.checks for live in lives):
         return AuditOutcome.ASSERTION_FREE
-    for test, checks in per_test:
-        if any(_calls_focal(node, focal_name) for _, node in checks):
+    for live in lives:
+        if any(_calls_focal(node, focal_name) for _, node in live.checks):
             return AuditOutcome.REAL
         # Salto de variable: un solo paso de flujo de datos dentro del mismo test.
-        for n in ast.walk(test):
-            if isinstance(n, (ast.Assign, ast.AnnAssign)) and n.value is not None \
-                    and _calls_focal(n.value, focal_name):
-                targets = n.targets if isinstance(n, ast.Assign) else [n.target]
-                assigned = set().union(*(_local_names(t) for t in targets))
-                end = getattr(n, "end_lineno", n.lineno)
-                if any(pos > end and assigned & _names(node) for pos, node in checks):
-                    return AuditOutcome.REAL
+        for end, assigned, value in live.assigns:
+            if _calls_focal(value, focal_name) and any(
+                pos > end and assigned & _names(node) for pos, node in live.checks
+            ):
+                return AuditOutcome.REAL
     return AuditOutcome.NO_FOCAL
 
 

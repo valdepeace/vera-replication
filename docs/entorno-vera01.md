@@ -53,3 +53,15 @@ Lo que no puede cerrarse estáticamente (y por tanto puede contarse como REAL au
 - Tests pasados por referencia a una función importada de otro módulo, o resueltos mediante alias dinámicos (`const t = cond ? test : () => {}`).
 - Sombreado de `assert` mediante parámetros o ámbitos interiores, o mutación indirecta (`Object.assign(assert, ...)`).
 - Mutación dinámica del código: queda fuera de alcance (no hay auditoría dinámica).
+
+### Known limits of the static Python audit
+
+`audit_python` decides by static analysis (`ast`) and follows one rule: every doubt is resolved toward `TEST_FREE` or `ASSERTION_FREE`, so `REAL` is under-counted and never inflated. It discards: tests disabled by `skip`, `skipif` (literal-true or undecidable condition), `skipUnless`, `xfail` and `expectedFailure` decorators (also on the class or via module-level `pytestmark`); async tests; assertions after `return`, `raise`, `pytest.skip`, `self.skipTest`, `sys.exit` and similar, including when only one branch of an `if` does so; `if False/0/None` blocks; `try` bodies whose handler swallows `AssertionError` (bare `except`, `Exception`, `BaseException`, `AssertionError`) without a top-level `raise`; `contextlib.suppress`; nested functions never called by name in the test; lambdas; `for` over a literal empty collection; and module-level exit, raise or `pytestmark` skip.
+
+What cannot be closed statically (these can still yield `REAL` without enforcing anything, or the opposite):
+
+- Conditions decided at run time (`if flag:` where `flag` is false at run time, `while` with a non-literal condition, loops over an iterable that happens to be empty such as `for x in cases:` with `cases = []`).
+- Aliased or indirect calls: a skip, exit or swallowing wrapper defined by the test itself, `getattr`, a helper that catches `AssertionError`, a nested function reached through an alias, a method called as `self.helper()`, or a lambda stored and called later (treated as never run, which under-counts).
+- Assertions that are vacuous but syntactically alive (`assert slugify(x) or True`, `assert slugify(x) is not None`, a comparison of the result with itself). The audit checks that the focal call takes part in an assertion, not that the assertion can fail.
+- Branches in `match` statements and in `except` handlers are ignored (under-count), and the data-flow hop follows a single assignment of a plain local name.
+- The harness treats pytest exit code 5 as a runner pass; dynamic effects such as fixtures that skip (`pytest.skip` inside a fixture) or `conftest.py` hooks are not modelled.
