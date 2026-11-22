@@ -3,6 +3,7 @@ ejerce de veras el método focal. Cinco resultados excluyentes, de los cuales
 solo REAL cuenta como éxito sustantivo."""
 from __future__ import annotations
 
+import ast
 import re
 
 from vera.types import AuditOutcome
@@ -129,4 +130,100 @@ def audit_java(code: str, focal_name: str, container: str) -> AuditOutcome:
             used = re.compile(rf"(?<![\w$.]){re.escape(name)}(?![\w$])")
             if any(pos >= assigned_at and used.search(args) for pos, args in asserts):
                 return AuditOutcome.REAL
+    return AuditOutcome.NO_FOCAL
+
+
+_DEF_RE = re.compile(r"^\s*(?:async\s+def|def|class)\s", re.MULTILINE)
+
+
+def _call_name(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _calls_focal(node: ast.AST, focal_name: str) -> bool:
+    return any(
+        isinstance(n, ast.Call) and _call_name(n.func) == focal_name for n in ast.walk(node)
+    )
+
+
+def _names(node: ast.AST) -> set[str]:
+    return {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+
+
+def _is_raises(node: ast.expr) -> bool:
+    return isinstance(node, ast.Call) and _call_name(node.func) == "raises"
+
+
+def _is_self_assert(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr.startswith("assert")
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "self"
+    )
+
+
+def _collected_tests(tree: ast.Module) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
+    """Funciones que pytest registraría: test* de módulo y test* de clases Test*
+    o derivadas de TestCase."""
+    func = (ast.FunctionDef, ast.AsyncFunctionDef)
+    tests = [n for n in tree.body if isinstance(n, func) and n.name.startswith("test")]
+    for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+        bases = {_call_name(b) for b in cls.bases}
+        if cls.name.startswith("Test") or "TestCase" in bases:
+            tests += [n for n in cls.body if isinstance(n, func) and n.name.startswith("test")]
+    return tests
+
+
+def _python_checks(test: ast.AST) -> list[tuple[int, ast.AST]]:
+    """Aserciones de un test con su posición: assert, self.assert*() y los
+    bloques with pytest.raises (cuyo cuerpo es lo aseverado)."""
+    found: list[tuple[int, ast.AST]] = []
+    for n in ast.walk(test):
+        if isinstance(n, ast.Assert):
+            found.append((n.lineno, n.test))
+        elif _is_self_assert(n):
+            found.append((n.lineno, n))
+        elif isinstance(n, (ast.With, ast.AsyncWith)) and any(
+            _is_raises(item.context_expr) for item in n.items
+        ):
+            found.append((n.lineno, n))
+    return found
+
+
+def audit_python(code: str, focal_name: str) -> AuditOutcome:
+    """Clasifica un test Python en las cinco categorías de la tesis."""
+    code = code or ""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        # Cabe señalar que lo ininteligible no se registra: sin definiciones es
+        # vacío; con ellas, el test jamás llegaría a registrarse.
+        return AuditOutcome.TEST_FREE if _DEF_RE.search(code) else AuditOutcome.EMPTY
+    if not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+               for n in ast.walk(tree)):
+        return AuditOutcome.EMPTY
+    tests = _collected_tests(tree)
+    if not tests:
+        return AuditOutcome.TEST_FREE
+    per_test = [(t, _python_checks(t)) for t in tests]
+    if not any(checks for _, checks in per_test):
+        return AuditOutcome.ASSERTION_FREE
+    for test, checks in per_test:
+        if any(_calls_focal(node, focal_name) for _, node in checks):
+            return AuditOutcome.REAL
+        # Salto de variable: un solo paso de flujo de datos dentro del mismo test.
+        for n in ast.walk(test):
+            if isinstance(n, (ast.Assign, ast.AnnAssign)) and n.value is not None \
+                    and _calls_focal(n.value, focal_name):
+                targets = n.targets if isinstance(n, ast.Assign) else [n.target]
+                assigned = set().union(*(_names(t) for t in targets))
+                end = getattr(n, "end_lineno", n.lineno)
+                if any(pos > end and assigned & _names(node) for pos, node in checks):
+                    return AuditOutcome.REAL
     return AuditOutcome.NO_FOCAL
