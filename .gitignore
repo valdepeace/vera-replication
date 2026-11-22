@@ -6,3 +6,4 @@ __pycache__/
 *.egg-info/
 results/runs/**/workspace/
 results/runs/**/records/
+results/fase1/
