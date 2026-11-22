@@ -1,0 +1,29 @@
+{
+  "sourceRepo": "../poc-ante",
+  "sourceCommit": "4b3e9902b409858abb96f646a7f540eaa875592b",
+  "targetFilesCleanAtSelection": true,
+  "targets": [
+    {
+      "language": "python",
+      "method": "truncate",
+      "source": "scripts/wsl_sandbox.py",
+      "sha256": "E23EFFBE37247EC5855C03EB2B24F2B318C29BDD6AF9BBFE6E955A06F0944D2A"
+    },
+    {
+      "language": "python",
+      "method": "to_wsl_path",
+      "source": "scripts/wsl_evaluator.py",
+      "sha256": "6E2186171D9079685CAB91FD8EF3D348C7CBDA02835756AD8D7EAC8923D06E30"
+    },
+    {
+      "language": "typescript-node",
+      "methods": ["nodeDir", "bestByRound"],
+      "source": "dashboard/src/lib/treeModel.ts",
+      "sha256": "855E868F4A7AAF6DDF8712C2D04B74296A2170B34AB833F62834BF67D3F7BA8D",
+      "typesOnlyDependency": {
+        "source": "dashboard/src/lib/types.ts",
+        "sha256": "5FDD35F370020EE5245DDE6357A8EC9AA05F77B85CE76B90AF6EA383A84F07CE"
+      }
+    }
+  ]
+}
