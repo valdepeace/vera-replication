@@ -121,7 +121,7 @@ Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.m
 | `qwen2.5-coder:7b` | 4/10 → 6/10 | 40 % → 85 % |
 | `llama3.1:8b` | 1/10 → 3/10 | 30 % → 85 % |
 
-**Java, bloque estadístico, Python y Node:** pendientes. Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio 3,74; 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
+**Java, bloque estadístico, Python y Node:** pendientes. Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio agregado 3,74 con el criterio ingenuo, que la propia tesis rebaja a 2,60 al retirar la contribución inflada de Llama 3.1 (verificado en el PDF); 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
 
 ### Criterios de éxito (sección 11 de la especificación)
 

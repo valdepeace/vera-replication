@@ -114,9 +114,10 @@ def _limits_section(languages) -> list[str]:
     lines = ["## Límites de lectura", "",
              "- **Cota de falsos REAL.** `REAL` procede de una auditoría estática (el "
              "test contiene `@Test`/aserciones y llama al método focal), no de una "
-             "ejecución ni de un mutation score. No cuantifica su tasa de falsos REAL; "
-             "la tasa sustantiva debe leerse como una cota superior respecto de los falsos REAL "
-             "conocidos y, a la vez, infravalora los éxitos que la auditoría descarta por prudencia."]
+             "ejecución ni de un mutation score. Las auditorías estáticas son "
+             "conservadoras frente a REAL en los casos que cierran (ante la duda no lo conceden), "
+             "pero los casos que documentan como abiertos aún pueden inflar REAL; ese posible "
+             "exceso de falsos REAL no está cuantificado."]
     if "python" in languages:
         lines.append(f"  - Python: el análisis `ast` deja abiertos casos que pueden dar `REAL` "
                      f"sin que el fallo se propague (condiciones en tiempo de ejecución, "
@@ -180,20 +181,23 @@ def _thesis_section(block: str, records) -> list[str]:
     return lines + [""]
 
 
-def render_markdown(records, *, block: str, planned_ids=None, partial_ok: bool = False) -> str:
-    """Informe de un bloque. Con `planned_ids` (los run_id planificados) se niega a presentar
-    tasas de un bloque con menos ejecuciones que las planificadas, salvo `partial_ok`, que
-    las marca con un aviso explícito de que no son una métrica."""
+def render_markdown(records, *, block: str, planned_ids, partial_ok: bool = False) -> str:
+    """Informe de un bloque. `planned_ids` (los run_id planificados) es obligatorio: sin plan no
+    hay forma de saber si el bloque está completo. Se niega a presentar tasas de un bloque con
+    menos ejecuciones que las planificadas, salvo `partial_ok`, que las marca con un aviso
+    explícito de que no son una métrica. Las versiones del prompt mezcladas se rechazan siempre."""
+    if planned_ids is None:
+        raise ValueError("planned_ids es obligatorio: sin plan no se puede comprobar la completitud")
     if block in REPLICA_BLOCKS:
         records = replica_records(records)
     records = [r for r in records if r.config.block == block]
     versions = {r.config.prompt_version for r in records}
-    if len(versions) > 1 and not partial_ok:
+    if len(versions) > 1:
         raise IncompleteBlockError(
             f"el bloque {block} mezcla versiones del prompt ({', '.join(sorted(versions))})")
     present = {r.config.run_id for r in records}
-    planned = set(planned_ids) if planned_ids is not None else None
-    missing = len(planned - present) if planned is not None else 0
+    planned = set(planned_ids)
+    missing = len(planned - present)
     if missing and not partial_ok:
         raise IncompleteBlockError(
             f"el bloque {block} tiene {len(planned & present)} de {len(planned)} ejecuciones "
@@ -204,10 +208,8 @@ def render_markdown(records, *, block: str, planned_ids=None, partial_ok: bool =
         lines += [f"> AVISO: corrida PARCIAL ({len(planned & present)} de {len(planned)} "
                   f"ejecuciones planificadas). Las tasas siguientes NO son una métrica y no "
                   f"deben citarse.", ""]
-    plan_note = ("sin plan: completitud no comprobada" if planned is None
-                 else f"planificadas: {len(planned)}")
     lines += [f"Ejecuciones: {len(records)} (válidas: {sum(r.valid for r in records)}; "
-              f"{plan_note})", ""]
+              f"planificadas: {len(planned)})", ""]
     lines += _conditions_section(records)
     if block == "determinista":
         lines += [f"Estabilidad entre repeticiones: {_num(stability(records), '.0%')}", ""]

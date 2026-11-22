@@ -1,8 +1,8 @@
 import re
 
-from vera.__main__ import main
 import pytest
 
+from vera.__main__ import main
 from vera.analysis.report import IncompleteBlockError, render_markdown
 from vera.store import RunStore
 from vera.types import AuditOutcome, Condition
@@ -30,7 +30,8 @@ def rows(md, first_cell):
 
 
 def test_report_contains_one_row_per_model_and_condition(make_record):
-    md = render_markdown(sample(make_record), block="estadistico")
+    md = render_markdown(sample(make_record), block="estadistico",
+                         planned_ids=ids(sample(make_record)))
     assert "java" in md
     for model in ("llama3.1:8b", "qwen2.5-coder:7b"):
         cond_rows = [r for r in rows(md, model) if "| baseline |" in r or "| repair |" in r]
@@ -39,7 +40,8 @@ def test_report_contains_one_row_per_model_and_condition(make_record):
 
 
 def test_report_flags_invalid_runs_count(make_record):
-    md = render_markdown(sample(make_record), block="estadistico")
+    records = sample(make_record)
+    md = render_markdown(records, block="estadistico", planned_ids=ids(records))
     assert re.search(r"Inválidas", md)
     llama = [r for r in rows(md, "llama3.1:8b") if "baseline" not in r and "repair" not in r]
     qwen = [r for r in rows(md, "qwen2.5-coder:7b") if "baseline" not in r and "repair" not in r]
@@ -49,8 +51,9 @@ def test_report_flags_invalid_runs_count(make_record):
 
 
 def test_report_ignores_other_blocks(make_record):
-    records = sample(make_record) + [make_record(model="intruso", block="extension")]
-    md = render_markdown(records, block="estadistico")
+    base = sample(make_record)
+    records = base + [make_record(model="intruso", block="extension")]
+    md = render_markdown(records, block="estadistico", planned_ids=ids(base))
     assert "intruso" not in md
 
 
@@ -86,7 +89,7 @@ def test_partial_block_with_flag_is_marked_and_skips_thesis(make_record):
     planned = ids(records) | {"estadistico/m/t99/baseline/r1"}
     md = render_markdown(records, block="estadistico", planned_ids=planned, partial_ok=True)
     assert "(PARCIAL)" in md and "NO son una métrica" in md
-    assert "Omitida" in md and "no verificable" not in md
+    assert "Omitida: una corrida parcial no se compara con la tesis" in md
 
 
 def test_complete_block_declares_engine_prompt_limits_and_thesis(make_record):
@@ -140,3 +143,19 @@ def test_cli_refuses_partial_block_without_flag(make_record, tmp_path, monkeypat
     assert main(["report", "--block", "determinista", "--language", "java"]) == 1
     captured = capsys.readouterr()
     assert "parcial" in captured.err and "| baseline |" not in captured.out
+
+
+def test_missing_plan_is_an_error(make_record):
+    with pytest.raises(ValueError, match="planned_ids"):
+        render_markdown(sample(make_record), block="estadistico", planned_ids=None)
+    with pytest.raises(TypeError):
+        render_markdown(sample(make_record), block="estadistico")
+
+
+def test_mixed_prompt_versions_are_refused_even_when_partial(make_record):
+    a = make_record(task_id="a")
+    b = make_record(task_id="b")
+    object.__setattr__(b.config, "prompt_version", "otra")
+    planned = ids([a, b]) | {"estadistico/m/t99/baseline/r1"}
+    with pytest.raises(IncompleteBlockError, match="versiones del prompt"):
+        render_markdown([a, b], block="estadistico", planned_ids=planned, partial_ok=True)
