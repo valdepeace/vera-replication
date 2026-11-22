@@ -239,3 +239,211 @@ def audit_python(code: str, focal_name: str) -> AuditOutcome:
                 if any(pos > end and assigned & _names(node) for pos, node in checks):
                     return AuditOutcome.REAL
     return AuditOutcome.NO_FOCAL
+
+
+# ---------------------------------------------------------------------------
+# Node: análisis textual (sin dependencias) tras quitar comentarios y cadenas.
+# ---------------------------------------------------------------------------
+_JS_IDENT = r"[A-Za-z_$][\w$]*"
+_JS_IMPORT_RE = re.compile(
+    r"\bimport\s*(?:([^;'\"]*?)\s*from\s*)?(['\"])([^'\"\n]*)\2\s*;?"
+)
+_JS_REQUIRE_RE = re.compile(
+    rf"\b(?:const|let|var)\s+(\{{[^}}]*\}}|{_JS_IDENT})\s*=\s*require\s*\(\s*(['\"])([^'\"\n]*)\2\s*\)\s*;?"
+)
+_JS_TEST_KINDS = {"test": "test", "it": "test", "describe": "suite", "suite": "suite"}
+_JS_ASSERT_MODULES = {"node:assert", "node:assert/strict", "assert", "assert/strict"}
+
+
+def _strip_js(code: str, keep_strings: bool = False) -> str:
+    """Elimina comentarios y, salvo que se pida lo contrario, vacía las cadenas
+    y las plantillas (las posiciones se conservan en lo posible)."""
+    out: list[str] = []
+    i, n = 0, len(code)
+    while i < n:
+        if code.startswith("//", i):
+            end = code.find("\n", i)
+            i = n if end == -1 else end
+        elif code.startswith("/*", i):
+            end = code.find("*/", i + 2)
+            out.append(" ")
+            i = n if end == -1 else end + 2
+        elif code[i] in "\"'`":
+            quote = code[i]
+            j = i + 1
+            while j < n and code[j] != quote and (quote == "`" or code[j] != "\n"):
+                j += 2 if code[j] == "\\" else 1
+            out.append(code[i : j + 1] if keep_strings else quote * 2)
+            i = j + 1
+        else:
+            out.append(code[i])
+            i += 1
+    return "".join(out)
+
+
+def _split_names(clause: str) -> list[tuple[str, str]]:
+    """Pares (importado, local) de una cláusula entre llaves: 'a, b as c'."""
+    pairs = []
+    for part in clause.strip().strip("{}").split(","):
+        bits = re.split(r"\s+as\s+|\s*:\s*", part.strip())
+        if bits and bits[0]:
+            pairs.append((bits[0], bits[-1]))
+    return pairs
+
+
+def _js_bindings(raw: str, module_ok) -> list[tuple[str, str, str]]:
+    """Enlaces de los módulos pedidos: (forma, importado, local), con forma en
+    default, namespace o named."""
+    found: list[tuple[str, str, str]] = []
+    for m in _JS_IMPORT_RE.finditer(raw):
+        clause, spec = (m.group(1) or "").strip(), m.group(3)
+        if not clause or not module_ok(spec):
+            continue
+        brace = re.search(r"\{[^}]*\}", clause)
+        if brace:
+            found += [("named", a, b) for a, b in _split_names(brace.group(0))]
+            clause = clause.replace(brace.group(0), " ")
+        ns = re.search(rf"\*\s*as\s+({_JS_IDENT})", clause)
+        if ns:
+            found.append(("namespace", "*", ns.group(1)))
+            clause = clause.replace(ns.group(0), " ")
+        default = re.search(_JS_IDENT, clause)
+        if default:
+            found.append(("default", "default", default.group(0)))
+    for m in _JS_REQUIRE_RE.finditer(raw):
+        if not module_ok(m.group(3)):
+            continue
+        target = m.group(1)
+        if target.startswith("{"):
+            found += [("named", a, b) for a, b in _split_names(target)]
+        else:
+            found.append(("default", "default", target))
+    return found
+
+
+def _js_registration_res(raw: str) -> list[tuple[str, re.Pattern[str]]]:
+    """Patrones de las llamadas que registran tests o suites en node:test."""
+    patterns: list[tuple[str, re.Pattern[str]]] = []
+    for form, imported, local in _js_bindings(raw, lambda s: s == "node:test"):
+        name = re.escape(local)
+        if form == "named" and imported in _JS_TEST_KINDS:
+            patterns.append((_JS_TEST_KINDS[imported],
+                             re.compile(rf"(?<![\w$.]){name}(?:\s*\.\s*only)?\s*\(")))
+        elif form in ("default", "namespace"):
+            if form == "default":
+                patterns.append(("test", re.compile(rf"(?<![\w$.]){name}(?:\s*\.\s*only)?\s*\(")))
+            for member, kind in _JS_TEST_KINDS.items():
+                patterns.append((kind, re.compile(
+                    rf"(?<![\w$.]){name}\s*\.\s*{member}(?:\s*\.\s*only)?\s*\(")))
+    return patterns
+
+
+def _js_assert_re(raw: str) -> re.Pattern[str]:
+    owners, direct = {"assert"}, set()
+    for form, imported, local in _js_bindings(raw, lambda s: s in _JS_ASSERT_MODULES):
+        (direct if form == "named" else owners).add(local)
+    owner_alt = "|".join(re.escape(o) for o in sorted(owners))
+    parts = [rf"(?<![\w$.])(?:{owner_alt})(?:\s*\.\s*[\w$]+)*\s*\("]
+    if direct:
+        parts.append(rf"(?<![\w$.])(?:{'|'.join(re.escape(d) for d in sorted(direct))})\s*\(")
+    # t.assert.equal(...) del contexto de node:test.
+    parts.append(r"(?<![\w$])[\w$]+\s*\.\s*assert\s*\.\s*[\w$]+\s*\(")
+    return re.compile("|".join(parts))
+
+
+def _mask_swallowed_try(text: str, assert_re: re.Pattern[str]) -> str:
+    """Borra el cuerpo de los try cuyo catch traga el fallo (ni relanza ni
+    aserta): una aserción ahí dentro jamás llega al código de salida."""
+    chars = list(text)
+    for m in re.finditer(r"(?<![\w$.])try\s*\{", text):
+        t_open = m.end() - 1
+        t_close = _matching(text, t_open, "{", "}")
+        c = re.compile(r"\s*catch\s*(?:\([^)]*\))?\s*\{").match(text, t_close + 1)
+        if c is None:
+            continue
+        c_open = c.end() - 1
+        c_body = text[c_open + 1 : _matching(text, c_open, "{", "}")]
+        if re.search(r"(?<![\w$.])throw\b", c_body) or assert_re.search(c_body):
+            continue
+        for k in range(t_open + 1, min(t_close, len(chars))):
+            if chars[k] != "\n":
+                chars[k] = " "
+    return "".join(chars)
+
+
+def _statement_end(text: str, start: int) -> int:
+    """Fin de la expresión que empieza en start: ';' o salto de línea a
+    profundidad cero, o el cierre de un paréntesis que la contiene."""
+    depth = 0
+    for k in range(start, len(text)):
+        ch = text[k]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+            if depth < 0:
+                return k
+        elif depth == 0 and ch in ";\n":
+            return k
+    return len(text)
+
+
+def _js_regions(clean: str, patterns) -> list[tuple[int, int, str]]:
+    regions = []
+    for kind, pattern in patterns:
+        for m in pattern.finditer(clean):
+            open_idx = m.end() - 1
+            regions.append((m.start(), _matching(clean, open_idx, "(", ")"), kind))
+    return sorted(regions)
+
+
+_JS_ASSIGN_RE = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)\s*=(?![=>])")
+
+
+def audit_node(code: str, focal_name: str) -> AuditOutcome:
+    """Clasifica un test Node en las cinco categorías de la tesis. Un test que no
+    se registra con node:test, o cuyo fallo no llega al código de salida, cuenta
+    como TEST_FREE aunque el proceso termine con código 0."""
+    raw = _strip_js(code or "", keep_strings=True)
+    residue = _JS_IMPORT_RE.sub(" ", raw)
+    residue = _JS_REQUIRE_RE.sub(" ", residue)
+    if not re.sub(r"[\s;]", "", residue):
+        return AuditOutcome.EMPTY
+    plain = _strip_js(code or "")
+    assert_re = _js_assert_re(raw)
+    clean = _mask_swallowed_try(plain, assert_re)
+    regions = _js_regions(clean, _js_registration_res(raw))
+    tests = [(s, e) for s, e, kind in regions if kind == "test"]
+    if not tests:
+        return AuditOutcome.TEST_FREE
+    if not any(s < m.start() < e for m in assert_re.finditer(clean) for s, e in tests) and any(
+        s < m.start() < e for m in assert_re.finditer(plain) for s, e in tests
+    ):
+        # Todas las aserciones las traga un try/catch: su fallo no llega al código
+        # de salida, luego el test no se registra a efectos de la tesis.
+        return AuditOutcome.TEST_FREE
+    outer: list[tuple[int, int]] = []
+    for s, e, _ in regions:
+        if not outer or s > outer[-1][1]:
+            outer.append((s, e))
+    asserts = []
+    for m in assert_re.finditer(clean):
+        if any(s < m.start() < e for s, e in tests):
+            open_idx = m.end() - 1
+            asserts.append((m.start(), clean[open_idx + 1 : _matching(clean, open_idx, "(", ")")]))
+    if not asserts:
+        return AuditOutcome.ASSERTION_FREE
+    focal = re.compile(rf"(?<![\w$.]){re.escape(focal_name)}\s*\(")
+    if any(focal.search(args) for _, args in asserts):
+        return AuditOutcome.REAL
+    # Salto de variable: solo variables simples; this.x o obj.x quedan fuera por
+    # el (?<![\w$.]) de la asignación.
+    for s, e in outer:
+        for m in _JS_ASSIGN_RE.finditer(clean, s, e):
+            rhs = clean[m.end() : _statement_end(clean, m.end())]
+            if not focal.search(rhs):
+                continue
+            used = re.compile(rf"(?<![\w$.]){re.escape(m.group(1))}(?![\w$])")
+            if any(pos >= m.end() and s <= pos < e and used.search(args) for pos, args in asserts):
+                return AuditOutcome.REAL
+    return AuditOutcome.NO_FOCAL
