@@ -29,9 +29,13 @@ Autorizados expresamente por la persona responsable. Ninguno está bajo control 
 |---|---|---|
 | `E:\vera-data\dl\apache-maven-3.9.9-bin.zip` (y `.sha512`) | 8,8 MiB | Archivo original de Maven, de `archive.apache.org/dist/maven/maven-3/3.9.9/binaries/` |
 | `E:\vera-data\maven` | 11 MiB | Apache Maven 3.9.9, portátil |
-| `E:\vera-data\m2` | 354 MiB | Repositorio local de Maven (`-Dmaven.repo.local`) |
+| `E:\vera-data\m2` | 354 MiB (358.771.073 bytes tras el calentamiento de Surefire) | Repositorio local de Maven (`-Dmaven.repo.local`) |
 | `E:\vera-data\commons-lang` | 56 MiB | Clon de `https://github.com/apache/commons-lang` en el commit `89bb30909bf873d75f5e06d144f9b2e72d74c076` |
 | `E:\vera-data\go-offline.log`, `test-compile.log` | pequeño | Registros del calentamiento |
+
+Calentamiento de Surefire (Tarea 7), con red y una sola vez, desde `E:\vera-data\commons-lang` con un test trivial temporal en `src/test/java/org/generated/ProbeOkTest.java` (retirado después):
+`mvn -B -q -Dmaven.repo.local=E:/vera-data/m2 -Drat.skip=true -Dtest=ProbeOkTest -Dsurefire.failIfNoSpecifiedTests=false test`.
+Añadió unos 0,7 MiB a `E:\vera-data\m2`: `org.apache.maven.surefire:surefire-junit-platform:3.5.4`, `org.apache.maven.surefire:common-java5:3.5.4`, `org.apache.maven.surefire:surefire-providers:3.5.4` (pom) y `org.junit.platform:junit-platform-{commons,engine,launcher}:1.12.1`.
 
 Checksum SHA-512 de `apache-maven-3.9.9-bin.zip` (coincide con el publicado por Apache):
 `8beac8d11ef208f1e2a8df0682b9448a9a363d2ad13ca74af43705549e72e74c9378823bf689287801cbbfc2f6ea9596201d19ccacfdfb682ee8a2ff4c4418ba`

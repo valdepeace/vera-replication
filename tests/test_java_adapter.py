@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
+from vera.adapters import java_maven
 from vera.adapters.java_maven import JavaMavenAdapter, run_killing_tree
-from vera.envinfo import COMMONS_LANG_DIR, MAVEN_BIN
+from vera.envinfo import COMMONS_LANG_DIR, M2_DIR, MAVEN_BIN
 from vera.types import AuditOutcome, Task
 
-M2_DIR = "E:/vera-data/m2"
 
 
 def make_task(test_name: str = "StringUtils_isEmpty_Test") -> Task:
@@ -202,6 +202,102 @@ def test_audit_delegates_to_audit_java(tmp_path):
     assert adapter.audit(make_task(), "class T { void t() {} }") is AuditOutcome.TEST_FREE
 
 
+def test_removes_only_the_generated_file_and_keeps_preexisting_dir(tmp_path):
+    gen = generated_dir(tmp_path)
+    gen.mkdir(parents=True)
+    other = gen / "Other.java"
+    other.write_text("keep", encoding="utf-8")
+    runner = FakeRunner(tmp_path)
+    adapter_with(tmp_path, runner).validate(make_task(), "class X {}")
+    assert runner.file_existed is True
+    assert other.read_text(encoding="utf-8") == "keep"
+    assert not (gen / "StringUtils_isEmpty_Test.java").exists()
+
+
+def test_created_dir_is_removed_but_parents_are_kept(tmp_path):
+    (tmp_path / "src/test/java/org").mkdir(parents=True)
+    adapter_with(tmp_path, FakeRunner(tmp_path)).validate(make_task(), "class X {}")
+    assert not generated_dir(tmp_path).exists()
+    assert (tmp_path / "src/test/java/org").is_dir()
+
+
+def test_removal_is_retried_on_transient_lock(tmp_path, monkeypatch):
+    real_unlink = Path.unlink
+    failures = {"left": 2}
+
+    def flaky_unlink(self, *args, **kwargs):
+        if self.name == "StringUtils_isEmpty_Test.java" and failures["left"] > 0:
+            failures["left"] -= 1
+            raise PermissionError("locked")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+    monkeypatch.setattr(java_maven.time, "sleep", lambda s: None)
+    result = adapter_with(tmp_path, FakeRunner(tmp_path)).validate(make_task(), "class X {}")
+    assert result.passed is True
+    assert failures["left"] == 0
+    assert not generated_dir(tmp_path).exists()
+
+
+def test_persistent_lock_raises_a_clear_error(tmp_path, monkeypatch):
+    real_unlink = Path.unlink
+
+    def locked_unlink(self, *args, **kwargs):
+        if self.name == "StringUtils_isEmpty_Test.java":
+            raise PermissionError("locked")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", locked_unlink)
+    monkeypatch.setattr(java_maven.time, "sleep", lambda s: None)
+    with pytest.raises(java_maven.GeneratedFileNotRemovedError, match="StringUtils_isEmpty_Test.java"):
+        adapter_with(tmp_path, FakeRunner(tmp_path)).validate(make_task(), "class X {}")
+    monkeypatch.undo()
+    assert (generated_dir(tmp_path) / "StringUtils_isEmpty_Test.java").exists()
+
+
+def test_forked_vm_exit_is_a_model_failure_not_infra(tmp_path):
+    out = (
+        "[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.4:test"
+        " (default-test) on project commons-lang3: There was an error in the forked process\r\n"
+        "[ERROR] The forked VM terminated without properly saying goodbye."
+        " VM crash or System.exit called?\r\n"
+    )
+    result = adapter_with(tmp_path, FakeRunner(tmp_path, returncode=1, stdout=out)).validate(
+        make_task(), "class X {}"
+    )
+    assert result.passed is False
+    assert result.infra_failure is False
+    assert "System.exit called?" in result.diagnostic
+
+
+def test_marker_printed_by_the_test_is_not_infra(tmp_path):
+    out = (
+        "Symbol could not be resolved: Cannot access the thing\r\n"
+        "[ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0 <<< FAILURE!\r\n"
+        "[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.4:test"
+        " (default-test) on project commons-lang3: There are test failures.\r\n"
+    )
+    result = adapter_with(tmp_path, FakeRunner(tmp_path, returncode=1, stdout=out)).validate(
+        make_task(), "class X {}"
+    )
+    assert result.infra_failure is False
+
+
+def test_failure_without_error_lines_gives_explicit_message_not_raw_noise(tmp_path):
+    out = "[INFO] Scanning for projects...\r\n" * 300 + "\tat a.b.C(C.java:1)\r\n" * 50 + (
+        "Killed by signal\r\n\r\n"
+    )
+    result = adapter_with(tmp_path, FakeRunner(tmp_path, returncode=3, stdout=out)).validate(
+        make_task(), "class X {}"
+    )
+    diag = result.diagnostic
+    assert diag.startswith("Maven failed with exit code 3")
+    assert "Killed by signal" in diag
+    assert "[INFO]" not in diag
+    assert "C.java" not in diag
+    assert len(diag) < 1000
+
+
 def test_default_runner_raises_timeout_and_kills_the_child():
     import sys
     started = time.perf_counter()
@@ -296,3 +392,18 @@ def test_integration_file_without_test_passes_and_audits_test_free(real_adapter)
     result = real_adapter.validate(task, code)
     assert result.passed is True, result.diagnostic
     assert real_adapter.audit(task, code) is AuditOutcome.TEST_FREE
+
+
+@pytest.mark.integration
+@needs_java_env
+def test_integration_system_exit_is_model_failure(real_adapter):
+    task = make_task("VeraIntegExitTest")
+    code = HEADER + (
+        "public class VeraIntegExitTest {\n"
+        "  @Test void bye() { System.exit(0); }\n"
+        "}\n"
+    )
+    result = real_adapter.validate(task, code)
+    assert result.passed is False
+    assert result.infra_failure is False, result.diagnostic
+    assert len(result.diagnostic) < 4000

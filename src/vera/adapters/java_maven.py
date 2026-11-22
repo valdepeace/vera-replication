@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -17,20 +16,31 @@ GENERATED_DIR = Path("src/test/java/org/generated")
 MAX_DIAGNOSTIC = 3900
 _TRUNCATED = "\n... [diagnostic truncated]"
 
+REMOVE_ATTEMPTS = 5
+REMOVE_DELAY_S = 0.5
+
 # Cabe señalar que estas huellas delatan un fallo del entorno (repositorio local
-# incompleto, red, JVM caída) y nunca un defecto del test generado.
+# incompleto, red) y nunca un defecto del test generado. Solo se buscan en las
+# líneas "Failed to execute goal", pues un test podría imprimirlas por su cuenta;
+# y una JVM que termina sin despedirse (System.exit) es, ciertamente, culpa del test.
 _INFRA_MARKERS = (
     "Could not resolve dependencies",
     "could not be resolved",
     "Cannot access",
     "Could not transfer artifact",
-    "The forked VM terminated",
 )
+_GOAL_FAILURE = "[ERROR] Failed to execute goal"
+_FALLBACK_LINES = 10
+_FALLBACK_LINE_CHARS = 300
 _BOILERPLATE_RE = re.compile(
     r"^(?:-> \[Help|To see the full stack trace|Re-run Maven using|For more information about"
     r"|\[Help \d+\]|See .*surefire-reports|See dump files)"
 )
 _ERROR_PREFIX = "[ERROR]"
+
+
+class GeneratedFileNotRemovedError(RuntimeError):
+    """El test generado no pudo retirarse del checkout objetivo."""
 
 
 def _kill_tree(pid: int) -> None:
@@ -57,6 +67,47 @@ def _cap(text: str) -> str:
         return text
     cut = text.rfind("\n", 0, MAX_DIAGNOSTIC - len(_TRUNCATED))
     return text[: cut if cut > 0 else MAX_DIAGNOSTIC - len(_TRUNCATED)] + _TRUNCATED
+
+
+def _fallback_diagnostic(output: str, returncode: int) -> str:
+    """Mensaje explícito y las últimas líneas con sustancia, sin ruido de Maven."""
+    meaningful = [
+        line.strip()[:_FALLBACK_LINE_CHARS]
+        for line in output.replace("\r\n", "\n").split("\n")
+        if line.strip() and not line.startswith(("[INFO]", "[WARNING]"))
+        and not line.strip().startswith("at ")
+    ]
+    head = f"Maven failed with exit code {returncode} and printed no [ERROR] lines."
+    tail = meaningful[-_FALLBACK_LINES:]
+    return head + ("\nLast output lines:\n" + "\n".join(tail) if tail else "")
+
+
+def _is_infra_failure(output: str) -> bool:
+    goal_lines = [
+        line for line in output.replace("\r\n", "\n").split("\n") if line.startswith(_GOAL_FAILURE)
+    ]
+    return any(marker in line for line in goal_lines for marker in _INFRA_MARKERS)
+
+
+def _remove_generated(target: Path, created_dir: bool) -> None:
+    """Retira el test generado con reintentos (bloqueos transitorios de Windows);
+    si persiste, alza un error claro: jamás debe quedar en el checkout."""
+    for attempt in range(REMOVE_ATTEMPTS):
+        try:
+            target.unlink(missing_ok=True)
+            break
+        except OSError:
+            if attempt < REMOVE_ATTEMPTS - 1:
+                time.sleep(REMOVE_DELAY_S)
+    if target.exists():
+        raise GeneratedFileNotRemovedError(
+            f"generated test could not be removed from the target checkout: {target}"
+        )
+    if created_dir:
+        try:
+            target.parent.rmdir()
+        except OSError:
+            pass  # no vacío: alberga ficheros ajenos que no nos incumben
 
 
 def filter_maven_output(output: str) -> str:
@@ -110,6 +161,7 @@ class JavaMavenAdapter:
         target_dir = self.repo / GENERATED_DIR
         target = target_dir / f"{task.test_name}.java"
         started = time.perf_counter()
+        created_dir = not target_dir.exists()
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
             target.write_text(code, encoding="utf-8")
@@ -126,14 +178,14 @@ class JavaMavenAdapter:
                     infra_failure=True,
                 )
         finally:
-            shutil.rmtree(target_dir, ignore_errors=True)
+            _remove_generated(target, created_dir)
 
         seconds = time.perf_counter() - started
         output = proc.stdout or ""
         if proc.returncode == 0:
             return ValidationResult(passed=True, diagnostic="", seconds=seconds)
-        diagnostic = filter_maven_output(output) or output[-MAX_DIAGNOSTIC:]
-        infra = any(marker in output for marker in _INFRA_MARKERS)
+        diagnostic = filter_maven_output(output) or _fallback_diagnostic(output, proc.returncode)
+        infra = _is_infra_failure(output)
         return ValidationResult(
             passed=False, diagnostic=_cap(diagnostic), seconds=seconds, infra_failure=infra
         )
