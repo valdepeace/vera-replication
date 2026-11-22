@@ -9,3 +9,5 @@
 Los bloques de la réplica se guardan en `results/runs/<bloque>/<lenguaje>/`: el `manifest.json` y los informes entran en git; los registros crudos de `records/` no (están en `.gitignore`). `python -m vera report --block <bloque> --language <lenguaje>` los resume y cuenta los `.tmp` sin cerrar.
 
 Una corrida está completa cuando contiene `summary.json`. Las carpetas sin ese archivo son intentos fallidos o interrumpidos y no deben agregarse a las métricas.
+
+- `results/runs/determinista/java/` (22 de noviembre de 2026): bloque determinista de Java completo, 80 ejecuciones válidas y ninguna inválida; resumido en [findings.md](../docs/findings.md) y en [informe.md](runs/determinista/java/informe.md). Cuenta como corrida de la réplica porque contiene `manifest.json`; las que no lo tengan, así como las parciales o interrumpidas, no entran en ninguna métrica.

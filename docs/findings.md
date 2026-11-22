@@ -69,3 +69,23 @@ Este hallazgo endurece el protocolo: además de comprobar ejecución, aserciones
 - Segunda corrida: [registro](../results/vera01-2026-11-21T16-15-12.346Z-BLv52y/records.jsonl), [resumen](../results/vera01-2026-11-21T16-15-12.346Z-BLv52y/summary.json) y [auditoría](../results/vera01-2026-11-21T16-15-12.346Z-BLv52y/audit.jsonl).
 - Métodos reales: [registro](../results/vera01-real-2026-11-21T17-21-17.724Z-E9Hig2/records.jsonl), [resumen](../results/vera01-real-2026-11-21T17-21-17.724Z-E9Hig2/summary.json), [auditoría manual](../results/vera01-real-2026-11-21T17-21-17.724Z-E9Hig2/audit.jsonl) y [manifiesto de fuentes](../benchmarks/vera01/real/manifest.json).
 - Los tests generados y la salida cruda de cada runner están en los subdirectorios del [registro de corridas](../results/README.md).
+
+
+## Bloque determinista de Java (VERA-01, réplica)
+
+Ejecutado el 22 de noviembre de 2026 con `python -m vera run --block determinista --language java`: dos modelos (`llama3.1:8b`, `qwen2.5-coder:7b`), diez métodos de `StringUtils` de Apache Commons Lang (commit `89bb30909bf873d75f5e06d144f9b2e72d74c076`), dos condiciones (`MAX_REPAIRS` 0 y 3) y dos repeticiones, con semilla 42 y temperatura 0: 80 ejecuciones, todas válidas, ninguna con fallo de infraestructura, ninguna interrumpida ni reanudada, sin ficheros `.tmp`. El conjunto completo tardó unos 20 minutos de cómputo de modelo y Maven (6,5 s por validación). El informe completo figura en [informe.md](../results/runs/determinista/java/informe.md) y el manifiesto en [manifest.json](../results/runs/determinista/java/manifest.json); los registros crudos no se versionan.
+
+| Modelo | Baseline (REAL) | Reparación (REAL) | Diferencia (IC 95 % de Newcombe) |
+|---|---:|---:|---|
+| `llama3.1:8b` | 6/20 (30 %) | 17/20 (85 %) | +0,55 [+0,25; +0,73] |
+| `qwen2.5-coder:7b` | 8/20 (40 %) | 17/20 (85 %) | +0,45 [+0,15; +0,66] |
+
+**Auditoría.** De las 80 ejecuciones, 48 fueron aceptadas por el validador y las 48 se clasificaron `REAL`; no apareció ningún `EMPTY`, `TEST_FREE`, `ASSERTION_FREE` ni `NO_FOCAL`, de modo que la tasa del runner coincide con la tasa sustantiva. Una comprobación adicional sobre los 48 tests aceptados (todos contienen `@Test`, al menos una aserción por prueba, ninguna aserción trivial y al menos una llamada al método focal) no halló sospechosos. No hubo, por tanto, ningún falso éxito que inspeccionar; las 32 ejecuciones restantes agotaron el presupuesto (26 en baseline, 6 en reparación). Todas las salidas se parsearon, ninguna se truncó.
+
+**Estabilidad.** Las dos repeticiones coinciden en el veredicto en 36 de 40 pares (90 %). Los cuatro pares discordantes son `llama3.1:8b` en `equalsIgnoreCase` y `isNotEmpty` (baseline), `llama3.1:8b` en `isBlank` (reparación: 3 intentos frente a 4 sin éxito) y `qwen2.5-coder:7b` en `trimToNull` (reparación, mismo patrón). La discordancia con temperatura 0 y semilla fija indica que el motor no es bit a bit determinista (probable no determinismo numérico de la GPU); no se ha investigado la causa.
+
+**Fallos tras reparación (6 ejecuciones).** `llama3.1:8b` en `length` (2 de 2): insiste en un `assertThrows(NullPointerException)` que `StringUtils.length(null)` no lanza (devuelve 0) y no corrige tras tres reparaciones; `llama3.1:8b` en `isBlank` (1): expectativa de aserción errónea; `qwen2.5-coder:7b` en `trimToEmpty` (2 de 2) y `trimToNull` (1): error de compilación persistente tras tres reparaciones.
+
+**Comparación con la orientación de la tesis** (sin exigir coincidencia): la tesis apunta a 4/10 → 6/10 en `qwen2.5-coder:7b` y a 1/10 → 3/10 en `llama3.1:8b`. Aquí, por repetición, `qwen2.5-coder:7b` pasa de 4/10 (ambas repeticiones dan 8/20, es decir, 4/10 de media) a 8,5/10 y `llama3.1:8b` de 3/10 a 8,5/10. El baseline de qwen coincide con la orientación; el de llama es más alto (3/10 frente a 1/10) y la mejora con reparación es sensiblemente mayor en ambos. Desviaciones posibles, sin contrastar: modelo y cuantización servidos por Ollama, prompt versionado `vera01-p1`, auditoría y proyecto distintos de los de la tesis.
+
+**Cautelas.** Son 80 ejecuciones de un bloque de planificación y estabilidad, no de significación: los 10 métodos son los mismos en cada celda y las dos repeticiones no son independientes (el 90 % de estabilidad lo confirma), de modo que los 20 casos por celda son en realidad unos 10 y el intervalo de Newcombe del informe, que los trata como independientes, es optimista. Lo único que cabe afirmar es que la reparación ayudó de forma consistente en estos métodos; la magnitud definitiva corresponde al bloque estadístico. No se detectó ningún defecto del arnés (parser, auditoría, adaptador) en el bloque.
