@@ -289,3 +289,145 @@ def test_legit_assert_in_if_branch_and_try_finally():
     code = ("def test_x():\n    try:\n        r = slugify('A')\n    finally:\n        pass\n"
             "    if r:\n        assert r == 'a'\n")
     assert audit(code) is AuditOutcome.REAL
+
+
+# --- Ronda 14b: huecos verificados con pytest real -------------------------
+
+@pytest.mark.parametrize("assertion", [
+    "assert (slugify('A') == 'a', 'msg')",
+    "assert (lambda: slugify('A') == 'a')",
+    "assert (slugify(x) for x in 'A')",
+])
+def test_always_true_assert_forms(assertion):
+    _not_real(f"def test_x():\n    {assertion}\n", AuditOutcome.ASSERTION_FREE)
+
+
+def test_self_asserttrue_of_lambda():
+    code = ("import unittest\n\nclass TestX(unittest.TestCase):\n    def test_a(self):\n"
+            "        self.assertTrue(lambda: slugify('A'))\n")
+    _not_real(code, AuditOutcome.ASSERTION_FREE)
+
+
+def test_variable_holding_lambda_is_not_a_focal_call():
+    _not_real("def test_x():\n    f = lambda: slugify('A')\n    assert f\n", AuditOutcome.NO_FOCAL)
+
+
+def test_all_over_generator_stays_real():
+    assert audit("def test_x():\n    assert all(slugify(c) for c in 'AB')\n") is AuditOutcome.REAL
+
+
+def test_assert_with_message_stays_real():
+    assert audit("def test_x():\n    assert slugify('A') == 'a', 'msg'\n") is AuditOutcome.REAL
+
+
+def test_duplicate_test_names_only_last_runs():
+    code = "def test_a():\n" + A + "\ndef test_a():\n    pass\n"
+    _not_real(code, AuditOutcome.ASSERTION_FREE)
+
+
+def test_duplicate_method_names_only_last_runs():
+    code = ("class TestX:\n    def test_a(self):\n    " + A + "\n    def test_a(self):\n        pass\n")
+    _not_real(code, AuditOutcome.ASSERTION_FREE)
+
+
+def test_duplicate_where_last_one_asserts_is_real():
+    code = "def test_a():\n    pass\n\ndef test_a():\n" + A
+    assert audit(code) is AuditOutcome.REAL
+
+
+@pytest.mark.parametrize("stop", [
+    "import pytest\nnp = pytest.importorskip('nonexistent_mod')",
+    "import pytest\ntry:\n    import nonexistent_mod\nexcept ImportError:\n"
+    "    pytest.skip('x', allow_module_level=True)",
+    "import pytest, sys\nif sys.platform == 'win32':\n    pytest.skip('x', allow_module_level=True)",
+])
+def test_conditional_or_assigned_module_skips(stop):
+    _not_real(f"{stop}\n\ndef test_x():\n" + A, AuditOutcome.TEST_FREE)
+
+
+def test_main_guard_exit_does_not_disable_module():
+    code = "import sys, pytest\n\ndef test_x():\n" + A + "\nif __name__ == '__main__':\n    sys.exit(pytest.main())\n"
+    assert audit(code) is AuditOutcome.REAL
+
+
+def test_importorskip_assigned_inside_test():
+    _not_real("import pytest\n\ndef test_x():\n    m = pytest.importorskip('zz')\n" + A,
+              AuditOutcome.ASSERTION_FREE)
+
+
+def test_nested_helper_called_inside_swallowing_try():
+    code = ("def test_x():\n    def check():\n    " + A +
+            "    try:\n        check()\n    except Exception:\n        pass\n")
+    _not_real(code, AuditOutcome.ASSERTION_FREE)
+
+
+@pytest.mark.parametrize("flow", [
+    "for x in [1]:\n        return", "while True:\n        return",
+    "try:\n        return\n    except ValueError:\n        pass",
+    "for x in range(3):\n        pytest.skip('x')",
+])
+def test_hard_flow_inside_compound_blocks(flow):
+    code = f"import pytest\n\ndef test_x():\n    {flow}\n" + A
+    _not_real(code, AuditOutcome.ASSERTION_FREE)
+
+
+def test_parametrize_empty_list_runs_nothing():
+    code = "import pytest\n\n@pytest.mark.parametrize('s', [])\ndef test_x(s):\n" + A
+    _not_real(code, AuditOutcome.TEST_FREE)
+
+
+def test_pytestmark_inside_class():
+    code = "import pytest\n\nclass TestX:\n    pytestmark = pytest.mark.skip\n    def test_a(self):\n    " + A
+    _not_real(code, AuditOutcome.TEST_FREE)
+
+
+def test_annotated_pytestmark():
+    code = "import pytest\npytestmark: object = pytest.mark.skip\n\ndef test_x():\n" + A
+    _not_real(code, AuditOutcome.TEST_FREE)
+
+
+def test_pytestmark_skipif_false_is_consistent():
+    code = "import pytest\npytestmark = pytest.mark.skipif(False, reason='x')\n\ndef test_x():\n" + A
+    assert audit(code) is AuditOutcome.REAL
+
+
+def test_skipif_condition_keyword():
+    code = "import pytest\n\n@pytest.mark.skipif(condition=True, reason='x')\ndef test_x():\n" + A
+    _not_real(code, AuditOutcome.TEST_FREE)
+
+
+def test_class_with_init_is_not_collected():
+    code = "class TestX:\n    def __init__(self):\n        pass\n    def test_a(self):\n    " + A
+    _not_real(code, AuditOutcome.TEST_FREE)
+
+
+def test_class_without_testcase_is_collected():
+    assert audit("class TestX:\n    def test_a(self):\n    " + A) is AuditOutcome.REAL
+
+
+def test_fixture_named_test_is_not_a_test():
+    code = "import pytest\n\n@pytest.fixture\ndef test_a():\n" + A
+    _not_real(code, AuditOutcome.TEST_FREE)
+
+
+def test_pytest_fail_in_handler_counts_as_reraise():
+    code = ("import pytest\n\ndef test_x():\n    try:\n    " + A +
+            "    except AssertionError:\n        pytest.fail('no')\n")
+    assert audit(code) is AuditOutcome.REAL
+
+
+@pytest.mark.parametrize("exc", ["Exception", "BaseException", "AssertionError"])
+def test_assert_inside_broad_raises_does_not_count(exc):
+    code = f"import pytest\n\ndef test_x():\n    with pytest.raises({exc}):\n    " + A
+    _not_real(code, AuditOutcome.NO_FOCAL)  # el bloque raises cuenta, pero sin el focal
+
+
+def test_focal_call_inside_broad_raises_still_real():
+    code = "import pytest\n\ndef test_x():\n    with pytest.raises(Exception):\n        slugify(None)\n"
+    assert audit(code) is AuditOutcome.REAL
+
+
+def test_multiple_asserts_and_via_variable_still_real():
+    code = ("def test_x():\n    assert 1 == 1\n    r = slugify('A')\n    assert r == 'a'\n"
+            "    assert slugify('B') == 'b'\n")
+    assert audit(code) is AuditOutcome.REAL

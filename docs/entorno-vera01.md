@@ -56,12 +56,19 @@ Lo que no puede cerrarse estáticamente (y por tanto puede contarse como REAL au
 
 ### Known limits of the static Python audit
 
-`audit_python` decides by static analysis (`ast`) and follows one rule: every doubt is resolved toward `TEST_FREE` or `ASSERTION_FREE`, so `REAL` is under-counted and never inflated. It discards: tests disabled by `skip`, `skipif` (literal-true or undecidable condition), `skipUnless`, `xfail` and `expectedFailure` decorators (also on the class or via module-level `pytestmark`); async tests; assertions after `return`, `raise`, `pytest.skip`, `self.skipTest`, `sys.exit` and similar, including when only one branch of an `if` does so; `if False/0/None` blocks; `try` bodies whose handler swallows `AssertionError` (bare `except`, `Exception`, `BaseException`, `AssertionError`) without a top-level `raise`; `contextlib.suppress`; nested functions never called by name in the test; lambdas; `for` over a literal empty collection; and module-level exit, raise or `pytestmark` skip.
+`audit_python` decides by static analysis (`ast`) and follows one rule: every doubt is resolved toward `TEST_FREE` or `ASSERTION_FREE`, so `REAL` is under-counted and never inflated. It counts only what runs. It discards:
 
-What cannot be closed statically (these can still yield `REAL` without enforcing anything, or the opposite):
+- Tests disabled by `skip`, `skipif`, `skipUnless`, `xfail` and `expectedFailure` decorators (a non-literal or keyword-less condition counts as disabled; `condition=` is read), by `parametrize` over an empty literal list, or by `pytestmark` (module or class, with or without annotation, evaluated with the same logic as decorators). Also async tests, fixtures named `test_*`, classes with `__init__`/`__new__`, and earlier definitions overridden by a later one of the same name (module and class).
+- Module code that may stop collection: any `raise`, `exit`/`sys.exit`/`os._exit`/`quit`, `skip`, `importorskip`, `xfail` or `fail` call at module level, even conditional (`if`, `try/except ImportError`) or assigned (`np = pytest.importorskip(...)`); only an `if __name__ == "__main__":` guard is exempt.
+- Assertions after `return`, `raise`, a skip/exit call or `importorskip`, including when only one branch of an `if` does so, and when the flow ends inside a `for`, `while` or `try` body; `if False/0/None/not True` blocks; loops over a literal empty collection.
+- Always-true asserts: tuple (`assert (x, "msg")`), bare lambda or generator, and `self.assert*(lambda ...)`/generator first argument; focal calls inside lambdas never count.
+- `try` bodies whose handler swallows `AssertionError` (bare, `Exception`, `BaseException`, `AssertionError`) without a top-level `raise` or `pytest.fail`, `contextlib.suppress`, and nested helpers called only from such places; nested functions never called by name; lambdas.
+- Assertions inside `pytest.raises(Exception | BaseException | AssertionError)` (they would "pass" only by failing); the focal call in that block still counts as the raising call.
 
-- Conditions decided at run time (`if flag:` where `flag` is false at run time, `while` with a non-literal condition, loops over an iterable that happens to be empty such as `for x in cases:` with `cases = []`).
-- Aliased or indirect calls: a skip, exit or swallowing wrapper defined by the test itself, `getattr`, a helper that catches `AssertionError`, a nested function reached through an alias, a method called as `self.helper()`, or a lambda stored and called later (treated as never run, which under-counts).
-- Assertions that are vacuous but syntactically alive (`assert slugify(x) or True`, `assert slugify(x) is not None`, a comparison of the result with itself). The audit checks that the focal call takes part in an assertion, not that the assertion can fail.
-- Branches in `match` statements and in `except` handlers are ignored (under-count), and the data-flow hop follows a single assignment of a plain local name.
-- The harness treats pytest exit code 5 as a runner pass; dynamic effects such as fixtures that skip (`pytest.skip` inside a fixture) or `conftest.py` hooks are not modelled.
+Still open (cannot be closed statically; they can yield `REAL` without enforcement, or under-count a real test):
+
+- Run-time conditions: `if flag:` with a false flag, a `while` with a non-literal condition, loops over an iterable that is empty only at run time (`cases = []`).
+- Vacuous but alive assertions: `assert slugify(x) or True`, `assert slugify(x) is not None`, a comparison of a value with itself. The audit checks that the focal call takes part in an assertion, not that it can fail.
+- Indirection: wrappers, aliases or `getattr` that skip, exit or swallow errors; a helper that itself catches `AssertionError`; skips inside fixtures or `conftest.py` hooks; `self.helper()` methods; a lambda stored and called later (under-counted).
+- Documented conservative under-counts: a hard branch that fails (`if r is None: pytest.fail()`) cuts later checks; a module-level helper called from the test is not followed; the callable form `pytest.raises(E, focal, None)` is not recognized; `match` branches and `except` handler bodies are ignored; the data-flow hop follows one assignment of a plain local name.
+- The runner treats pytest exit code 5 as a pass; the audit then classifies it.

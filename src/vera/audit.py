@@ -163,8 +163,11 @@ def _expr_nodes(node: ast.AST):
 
 
 def _calls_focal(node: ast.AST, focal_name: str) -> bool:
+    # Una lambda o un generador desnudos no ejecutan nada por sí solos.
+    if isinstance(node, (ast.Lambda, ast.GeneratorExp)):
+        return False
     return any(
-        isinstance(n, ast.Call) and _call_name(n.func) == focal_name for n in ast.walk(node)
+        isinstance(n, ast.Call) and _call_name(n.func) == focal_name for n in _expr_nodes(node)
     )
 
 
@@ -189,6 +192,15 @@ def _is_raises(node: ast.expr) -> bool:
         return False
     name = _call_name(node.func) or ""
     return name == "raises" or name.startswith("assertRaises")
+
+
+def _broad_raises(call: ast.Call) -> bool:
+    """¿Admite raises/assertRaises el AssertionError (Exception y afines)?"""
+    if not call.args:
+        return False
+    first = call.args[0]
+    elts = first.elts if isinstance(first, ast.Tuple) else [first]
+    return any(_call_name(e) in _SWALLOWED for e in elts)
 
 
 def _is_suppress(node: ast.expr) -> bool:
@@ -218,7 +230,7 @@ def _const(test: ast.expr) -> bool | None:
 
 def _is_terminator(stmt: ast.stmt) -> bool:
     return (
-        isinstance(stmt, ast.Expr)
+        isinstance(stmt, (ast.Expr, ast.Assign, ast.AnnAssign))
         and isinstance(stmt.value, ast.Call)
         and _call_name(stmt.value.func) in _TERMINATING
     )
@@ -229,10 +241,20 @@ def _decorator_disables(dec: ast.expr) -> bool:
     name = _call_name(base)
     if name in _DISABLING:
         return True
+    if name == "parametrize" and isinstance(dec, ast.Call):
+        values = dec.args[1] if len(dec.args) > 1 else next(
+            (k.value for k in dec.keywords if k.arg == "argvalues"), None
+        )
+        return isinstance(values, (ast.List, ast.Tuple, ast.Set)) and not values.elts
     if name in _CONDITIONAL_DISABLING:
-        if not (isinstance(dec, ast.Call) and dec.args):
+        cond_node = None
+        if isinstance(dec, ast.Call):
+            cond_node = dec.args[0] if dec.args else next(
+                (k.value for k in dec.keywords if k.arg == "condition"), None
+            )
+        if cond_node is None:
             return True
-        cond = _const(dec.args[0])
+        cond = _const(cond_node)
         if cond is None:
             return True  # Cabe señalar que ante la duda se descuenta el test.
         return (not cond) if name == "skipUnless" else cond
@@ -243,31 +265,83 @@ def _disabled(node: ast.AST) -> bool:
     return any(_decorator_disables(d) for d in getattr(node, "decorator_list", []))
 
 
-def _module_disabled(tree: ast.Module) -> bool:
-    for stmt in tree.body:
-        if isinstance(stmt, ast.Raise) or _is_terminator(stmt):
-            return True
-        if isinstance(stmt, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id == "pytestmark" for t in stmt.targets
-        ):
-            marks = [n for n in ast.walk(stmt.value) if isinstance(n, (ast.Name, ast.Attribute))]
-            if any(_call_name(m) in _DISABLING | _CONDITIONAL_DISABLING for m in marks):
+def _marks_disable(stmts: list[ast.stmt]) -> bool:
+    """¿Anula un `pytestmark = ...` (con o sin anotación) todo el ámbito?"""
+    for st in stmts:
+        if not isinstance(st, (ast.Assign, ast.AnnAssign)) or st.value is None:
+            continue
+        targets = st.targets if isinstance(st, ast.Assign) else [st.target]
+        if any(isinstance(t, ast.Name) and t.id == "pytestmark" for t in targets):
+            v = st.value
+            elts = v.elts if isinstance(v, (ast.List, ast.Tuple)) else [v]
+            if any(_decorator_disables(e) for e in elts):
                 return True
     return False
+
+
+def _is_main_guard(stmt: ast.stmt) -> bool:
+    return (
+        isinstance(stmt, ast.If)
+        and isinstance(stmt.test, ast.Compare)
+        and isinstance(stmt.test.left, ast.Name)
+        and stmt.test.left.id == "__name__"
+    )
+
+
+def _module_disabled(tree: ast.Module) -> bool:
+    """Cabe señalar que cualquier salida, raise o skip del código de módulo (aun
+    condicional o asignado, como importorskip) impide, ante la duda, la recolección."""
+    if _marks_disable(tree.body):
+        return True
+    for stmt in tree.body:
+        if isinstance(stmt, _SCOPES) or _is_main_guard(stmt):
+            continue
+        for n in _expr_nodes(stmt):
+            if isinstance(n, ast.Raise):
+                return True
+            if isinstance(n, ast.Call) and _call_name(n.func) in _TERMINATING:
+                return True
+    return False
+
+
+def _last_definitions(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Pytest solo ejecuta la última definición de cada nombre."""
+    seen: dict[str, ast.stmt] = {}
+    for n in body:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            seen[n.name] = n
+    return list(seen.values())
+
+
+def _is_fixture(node: ast.AST) -> bool:
+    return any(
+        _call_name(d.func if isinstance(d, ast.Call) else d) == "fixture"
+        for d in getattr(node, "decorator_list", [])
+    )
+
+
+def _runnable_test(n: ast.stmt) -> bool:
+    return (isinstance(n, ast.FunctionDef) and n.name.startswith("test")
+            and not _disabled(n) and not _is_fixture(n))
 
 
 def _collected_tests(tree: ast.Module) -> list[ast.FunctionDef]:
     """Funciones que pytest registraría y que de veras se ejecutan: test* de
     módulo y test* de clases Test* o derivadas de TestCase, salvo las anuladas por
-    decoradores y las asíncronas (sin complemento no se ejecutan)."""
-    tests = [n for n in tree.body
-             if isinstance(n, ast.FunctionDef) and n.name.startswith("test") and not _disabled(n)]
-    for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+    decoradores o marcas, las fixtures, las asíncronas, las pisadas por otra
+    definición del mismo nombre y las de clases con __init__ o __new__."""
+    defs = _last_definitions(tree.body)
+    tests = [n for n in defs if _runnable_test(n)]
+    for cls in (n for n in defs if isinstance(n, ast.ClassDef)):
         bases = {_call_name(b) for b in cls.bases}
-        if (cls.name.startswith("Test") or "TestCase" in bases) and not _disabled(cls):
-            tests += [n for n in cls.body
-                      if isinstance(n, ast.FunctionDef) and n.name.startswith("test")
-                      and not _disabled(n)]
+        members = _last_definitions(cls.body)
+        if not (cls.name.startswith("Test") or "TestCase" in bases):
+            continue
+        if _disabled(cls) or _marks_disable(cls.body):
+            continue
+        if any(isinstance(m, ast.FunctionDef) and m.name in ("__init__", "__new__") for m in members):
+            continue
+        tests += [m for m in members if _runnable_test(m)]
     return tests
 
 
@@ -290,12 +364,20 @@ class _Live:
                 name = _call_name(n.func) if isinstance(n.func, ast.Name) else None
                 if name:
                     self.called.add(name)
-                if _is_self_assert(n):
+                if _is_self_assert(n) and not (
+                    n.args and isinstance(n.args[0], (ast.Lambda, ast.GeneratorExp))
+                ):
                     self.checks.append((n.lineno, n))
 
 
 def _swallows(handler: ast.ExceptHandler) -> bool:
-    if any(isinstance(s, ast.Raise) for s in handler.body):
+    # Un raise o un pytest.fail del manejador devuelven el fallo: no se traga nada.
+    if any(
+        isinstance(s, ast.Raise)
+        or (isinstance(s, ast.Expr) and isinstance(s.value, ast.Call)
+            and _call_name(s.value.func) == "fail")
+        for s in handler.body
+    ):
         return False
     if handler.type is None:
         return True
@@ -314,7 +396,9 @@ def _walk(live: _Live, stmts: list[ast.stmt]) -> str | None:
         elif isinstance(s, ast.ClassDef):
             pass
         elif isinstance(s, ast.Assert):
-            live.checks.append((s.lineno, s.test))
+            # Una tupla, lambda o generador desnudos son siempre verdaderos.
+            if not isinstance(s.test, (ast.Tuple, ast.Lambda, ast.GeneratorExp)):
+                live.checks.append((s.lineno, s.test))
             live.stmts.append(s)
             live.scan(s.test)
             live.scan(s.msg)
@@ -330,12 +414,12 @@ def _walk(live: _Live, stmts: list[ast.stmt]) -> str | None:
             empty = isinstance(s.iter, (ast.List, ast.Tuple, ast.Set, ast.Dict)) and not (
                 s.iter.elts if not isinstance(s.iter, ast.Dict) else s.iter.keys
             )
-            if not empty:
-                _walk(live, s.body)
+            if not empty and _walk(live, s.body) == "hard":
+                state = "hard"
         elif isinstance(s, ast.While):
             live.scan(s.test)
-            if _const(s.test) is not False:
-                _walk(live, s.body)
+            if _const(s.test) is not False and _walk(live, s.body) == "hard":
+                state = "hard"
         elif isinstance(s, (ast.With, ast.AsyncWith)):
             state = _walk_with(live, s)
         elif isinstance(s, ast.Try):
@@ -374,27 +458,31 @@ def _walk_with(live: _Live, s: ast.With | ast.AsyncWith) -> str | None:
         live.scan(item.context_expr)
     if any(_is_suppress(i.context_expr) for i in s.items):
         return None  # el contexto se traga el AssertionError
-    raises = any(_is_raises(i.context_expr) for i in s.items)
-    start = len(live.stmts)
+    raising = [i.context_expr for i in s.items if _is_raises(i.context_expr)]
+    start, checks_start = len(live.stmts), len(live.checks)
     state = _walk(live, s.body)
-    if raises:
-        live.checks.append((s.lineno, ast.Module(body=live.stmts[start:], type_ignores=[])))
+    if raising:
+        body = live.stmts[start:]
+        if any(_broad_raises(c) for c in raising):
+            # Cabe señalar que bajo raises(Exception) una aserción "pasa" solo
+            # porque falla: ni ella ni sus llamadas cuentan como comprobación.
+            del live.checks[checks_start:]
+            body = [x for x in body if not isinstance(x, ast.Assert)]
+        live.checks.append((s.lineno, ast.Module(body=body, type_ignores=[])))
         return None
     return state
 
 
 def _walk_try(live: _Live, s: ast.Try) -> str | None:
-    start = len(live.checks)
+    start, called = len(live.checks), set(live.called)
     state = _walk(live, s.body)
     if any(_swallows(h) for h in s.handlers):
         del live.checks[start:]
-        state = None
-    elif s.handlers:
-        state = None
+        live.called = called  # los auxiliares llamados aquí tampoco cuentan
     if state is None and s.orelse:
         state = _walk(live, s.orelse)
     fin = _walk(live, s.finalbody) if s.finalbody else None
-    return state or fin
+    return "hard" if "hard" in (state, fin) else (state or fin)
 
 
 def _live_test(test: ast.FunctionDef) -> _Live:
