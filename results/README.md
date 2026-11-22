@@ -6,4 +6,6 @@
 - `vera01-2026-11-21T13-57-56.013Z-6dKPRJ`: intento parcial con `/api/generate`, interrumpido cuando algunas respuestas llegaron vacías. Excluido.
 - `vera01-2026-11-21T13-56-50.417Z-J2jiQA` y `vera01-2026-11-21T13-57-36.269Z-yTlXkq`: intentos con `qwen2.5-coder:7b` que fallaron al cargar por falta de memoria. No contienen corridas válidas.
 
+Los bloques de la réplica se guardan en `results/runs/<bloque>/<lenguaje>/`: el `manifest.json` y los informes entran en git; los registros crudos de `records/` no (están en `.gitignore`). `python -m vera report --block <bloque> --language <lenguaje>` los resume y cuenta los `.tmp` sin cerrar.
+
 Una corrida está completa cuando contiene `summary.json`. Las carpetas sin ese archivo son intentos fallidos o interrumpidos y no deben agregarse a las métricas.

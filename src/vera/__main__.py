@@ -1,4 +1,4 @@
-"""CLI de VERA-01: python -m vera run --block ... --language ..."""
+"""CLI de VERA-01: python -m vera {run,report} --block ... --language ..."""
 from __future__ import annotations
 
 import argparse
@@ -23,6 +23,21 @@ def _report_progress(index: int, total: int, record: RunRecord) -> None:
           f" valid={record.valid}", file=sys.stderr, flush=True)
 
 
+def _report(block_name: str, language: str) -> int:
+    from vera.analysis.report import render_markdown
+    from vera.runner import block_dir
+    from vera.store import RunStore
+
+    records_dir = block_dir(REPO_ROOT / "results", BLOCKS[block_name], language) / "records"
+    records = list(RunStore(records_dir).load_all())
+    tmp_files = len(list(records_dir.glob("*.tmp"))) if records_dir.is_dir() else 0
+    invalid = sum(not r.valid for r in records)
+    print(f"ejecuciones={len(records)} invalidas={invalid} tmp_sin_cerrar={tmp_files}")
+    print()
+    print(render_markdown(records, block=block_name))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m vera")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -33,8 +48,13 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--dry-run", action="store_true")
     run.add_argument("--skip-infra-failed", action="store_true",
                      help="no repetir las ejecuciones guardadas con fallo de infraestructura")
+    report = sub.add_parser("report", help="resume en Markdown las ejecuciones de un bloque")
+    report.add_argument("--block", choices=sorted(BLOCKS), required=True)
+    report.add_argument("--language", choices=("java", "python", "node"), required=True)
     args = parser.parse_args(argv)
 
+    if args.command == "report":
+        return _report(args.block, args.language)
     if args.language not in ADAPTER_LANGUAGES:
         run.error(f"el lenguaje '{args.language}' todavia no tiene adaptador; "
                   f"disponibles: {', '.join(ADAPTER_LANGUAGES)}")
