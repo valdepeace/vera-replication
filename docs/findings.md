@@ -89,3 +89,47 @@ Ejecutado el 22 de noviembre de 2026 con `python -m vera run --block determinist
 **Comparación con la orientación de la tesis** (sin exigir coincidencia): la tesis apunta a 4/10 → 6/10 en `qwen2.5-coder:7b` y a 1/10 → 3/10 en `llama3.1:8b`. Aquí, por repetición, `qwen2.5-coder:7b` pasa de 4/10 (ambas repeticiones dan 8/20, es decir, 4/10 de media) a 8,5/10 y `llama3.1:8b` de 3/10 a 8,5/10. El baseline de qwen coincide con la orientación; el de llama es más alto (3/10 frente a 1/10) y la mejora con reparación es sensiblemente mayor en ambos. Desviaciones posibles, sin contrastar: modelo y cuantización servidos por Ollama, prompt versionado `vera01-p1`, auditoría y proyecto distintos de los de la tesis.
 
 **Cautelas.** Son 80 ejecuciones de un bloque de planificación y estabilidad, no de significación: los 10 métodos son los mismos en cada celda y las dos repeticiones no son independientes (el 90 % de estabilidad lo confirma), de modo que los 20 casos por celda son en realidad unos 10 y el intervalo de Newcombe del informe, que los trata como independientes, es optimista. Lo único que cabe afirmar es que la reparación ayudó de forma consistente en estos métodos; la magnitud definitiva corresponde al bloque estadístico. No se detectó ningún defecto del arnés (parser, auditoría, adaptador) en el bloque.
+
+
+## Réplica VERA-01 (informe consolidado)
+
+**Estado a 22 de noviembre de 2026:** solo hay un bloque completo y válido, el determinista de Java (80 ejecuciones, descrito arriba). El bloque estadístico de Java (2.400 ejecuciones planificadas) estaba en curso y los de Python y Node no se han ejecutado; sus tasas se incorporarán aquí únicamente cuando cada bloque esté completo. Cabe señalar que `python -m vera report --block <bloque> --language <lenguaje>` se niega a presentar tasas de un bloque con menos ejecuciones que las planificadas (con `--partial` las marca como PARCIAL y no una métrica), y que el piloto del 21 de noviembre, las corridas parciales y las interrumpidas no entran en ninguna cifra de la réplica.
+
+### Entorno
+
+Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.md); medición de motores y puerta de calidad con `num_ctx` 8192 en [medicion-8192.md](medicion-8192.md). Motor: Ollama 0.40.13 (puertos 11434 y 11435); versión del prompt: `vera01-p1` (`PROMPT_VERSION`).
+
+### Desviaciones respecto de la tesis
+
+| Aspecto | Tesis | Réplica | Efecto probable |
+|---|---|---|---|
+| Prompts | Texto no publicado | Reconstruidos (`vera01-p1`) | Las tasas absolutas no son comparables en rigor |
+| Orquestación | LangChain y LangGraph 1.1.4, grafo de tres nodos | Flujo propio de tres nodos (`src/vera/workflow.py`), sin LangGraph | Mismo ciclo; posibles diferencias de formato y reintentos |
+| Contexto | `OLLAMA_NUM_CTX=8192` | `num_ctx` 8192, `num_predict` 2048 (tope no publicado en la tesis) | Lo truncado cuenta como fallo y consume una reparación |
+| Hardware | RTX 4060 Laptop, driver 576.02 | RTX 3060 Ti, driver 610.88 | Afecta al tiempo; el efecto en las tasas no se ha medido |
+| Métodos del bloque estadístico | 20 métodos; los diez adicionales no se publican | Diez adicionales elegidos por la réplica | La dificultad del conjunto difiere |
+| Veredicto | Validación con Maven en el árbol del proyecto | Maven en modo desconectado, limitado al test generado; sin suite completa | Un test que rompa otros módulos no se detecta |
+| Javadoc | No consta que se omita | El `focal_source` se entrega sin Javadoc | Menos pistas sobre el oráculo que en un uso real |
+| Python y Node | No existen en la tesis | Proyectos propios ([proyectos-python-node.md](proyectos-python-node.md)) | Sin cifra de la tesis con la que comparar |
+
+### Resultados por lenguaje y modelo
+
+**Java, bloque determinista** (completo; `results/runs/determinista/java/informe.md`): véase la sección anterior. Tasas REAL, baseline frente a reparación, de 20 ejecuciones por celda: `llama3.1:8b` 6/20 frente a 17/20 y `qwen2.5-coder:7b` 8/20 frente a 17/20.
+
+| Modelo | Tesis publicada (Tabla 4.3, métodos de 10) | Réplica (REAL, por 10 métodos) |
+|---|---|---|
+| `qwen2.5-coder:7b` | 4/10 → 6/10 | 40 % → 85 % |
+| `llama3.1:8b` | 1/10 → 3/10 | 30 % → 85 % |
+
+**Java, bloque estadístico, Python y Node:** pendientes. Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio 3,74; 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
+
+### Criterios de éxito (sección 11 de la especificación)
+
+- Mejora por reparación en al menos tres de los cuatro modelos de Java (criterio: diferencia positiva con intervalo de confianza del 95 % que excluye el cero): **sin evaluar**; solo hay dos modelos en el bloque determinista, que no cuenta como evidencia estadística, y el estadístico no está completo.
+- Porcentaje de éxitos vacíos por modelo: en el determinista fue 0 % (48 aceptados, 48 REAL); la discusión de su concentración queda para el estadístico, donde la tesis sitúa el problema en Llama 3.1.
+- Múltiplo de tokens de la reparación: lo calcula el informe por modelo; pendiente del bloque completo.
+
+### Límites
+
+Una sola máquina y un solo contexto (8192); prompts reconstruidos, no idénticos a los de la tesis; sin mutation score ni medida del poder de detección de las aserciones; la tasa REAL descansa en una auditoría estática cuyos límites para Python y Node están en [entorno-vera01.md](entorno-vera01.md), de modo que puede contener falsos REAL no cuantificados; los intervalos de Newcombe suponen independencia que no existe (mismos métodos en todas las celdas), por lo que son optimistas. No se afirma coincidencia con la tesis: solo se informa la dirección y la magnitud observadas.
+

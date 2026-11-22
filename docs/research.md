@@ -28,9 +28,13 @@ Se fijarán tareas, verificador y harness para comparar condiciones. Si se modif
 
 Terminal-Bench no será el benchmark inicial: evalúa tareas terminales diversas, no solo ingeniería de software, y evoluciona por versiones; si se incorpora más adelante, habrá que fijar una release concreta. [Terminal-Bench](https://github.com/harbor-framework/terminal-bench)
 
-## Cómo ejecutar la primera prueba
+## Cómo ejecutar la réplica VERA-01
 
-Empezaremos por VERA-01 para comprobar que el ciclo y la auditoría funcionan en un entorno controlado. El primer piloto valida el procedimiento; por su tamaño no servirá para afirmar que la reparación mejora el rendimiento de forma general.
+La réplica, no el piloto, es ahora el procedimiento vigente: se ejecuta con `python -m vera run --block <determinista|estadistico> --language <java|python|node>` (entorno en [entorno-vera01.md](entorno-vera01.md)), se resume con `python -m vera report --block ... --language ...` y se interpreta con el informe de [findings.md](findings.md#réplica-vera-01-informe-consolidado). Los bloques guardan una traza por ejecución en `results/runs/<bloque>/<lenguaje>/records/` y se reanudan tras una interrupción; el informe se niega a presentar tasas de un bloque con menos ejecuciones que las planificadas. Lo que sigue describe el piloto del 21 de noviembre, archivado y fuera de las métricas de la réplica.
+
+## Cómo se ejecutó el piloto archivado
+
+Empezamos por VERA-01 para comprobar que el ciclo y la auditoría funcionan en un entorno controlado. El primer piloto valida el procedimiento; por su tamaño no servirá para afirmar que la reparación mejora el rendimiento de forma general.
 
 1. Para comprobar el mecanismo, usar los fixtures sintéticos de este repo: dos métodos por lenguaje y una suite base. Este piloto no representa repositorios reales. En una evaluación posterior se sustituirán por proyectos fijados a commits concretos.
 2. Elegir un modelo local y fijar su versión, backend, cuantización y parámetros de generación. Mantenerlos iguales en Python y JavaScript/Node.

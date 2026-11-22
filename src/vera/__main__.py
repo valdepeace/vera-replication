@@ -23,8 +23,8 @@ def _report_progress(index: int, total: int, record: RunRecord) -> None:
           f" valid={record.valid}", file=sys.stderr, flush=True)
 
 
-def _report(block_name: str, language: str) -> int:
-    from vera.analysis.report import render_markdown
+def _report(block_name: str, language: str, partial: bool = False) -> int:
+    from vera.analysis.report import IncompleteBlockError, planned_run_ids, render_markdown
     from vera.runner import block_dir
     from vera.store import RunStore
 
@@ -34,7 +34,12 @@ def _report(block_name: str, language: str) -> int:
     invalid = sum(not r.valid for r in records)
     print(f"ejecuciones={len(records)} invalidas={invalid} tmp_sin_cerrar={tmp_files}")
     print()
-    print(render_markdown(records, block=block_name))
+    try:
+        print(render_markdown(records, block=block_name, partial_ok=partial,
+                              planned_ids=planned_run_ids(block_name, language)))
+    except IncompleteBlockError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -51,10 +56,12 @@ def main(argv: list[str] | None = None) -> int:
     report = sub.add_parser("report", help="resume en Markdown las ejecuciones de un bloque")
     report.add_argument("--block", choices=sorted(BLOCKS), required=True)
     report.add_argument("--language", choices=("java", "python", "node"), required=True)
+    report.add_argument("--partial", action="store_true",
+                        help="presenta un bloque incompleto marcado como PARCIAL (no es una métrica)")
     args = parser.parse_args(argv)
 
     if args.command == "report":
-        return _report(args.block, args.language)
+        return _report(args.block, args.language, args.partial)
     if args.language not in ADAPTER_LANGUAGES:
         run.error(f"el lenguaje '{args.language}' todavia no tiene adaptador; "
                   f"disponibles: {', '.join(ADAPTER_LANGUAGES)}")
