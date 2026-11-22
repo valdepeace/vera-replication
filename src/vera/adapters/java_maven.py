@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -13,6 +14,24 @@ from vera.audit import audit_java
 from vera.types import AuditOutcome, Task, ValidationResult
 
 GENERATED_DIR = Path("src/test/java/org/generated")
+TEST_CLASSES_DIR = Path("target/test-classes")
+GENERATED_CLASSES_DIR = TEST_CLASSES_DIR / "org/generated"
+
+# Dícese de las banderas que abrevian la validación sin alterar su veredicto
+# (Tarea 7c, medidas una a una). Omiten ejecuciones ajenas a un único test
+# (reglas de versión, recursos de javadoc y de licencias, número de build,
+# manifiesto OSGi) y, sobre todo, hacen que javac
+# recompile solo las fuentes obsoletas, es decir, el test generado, en lugar
+# de las 268 fuentes de test del módulo. Las clases principales siguen
+# compilándose en su fase y Surefire corre igual contra ellas.
+FAST_FLAGS = (
+    "-Denforcer.skip=true",
+    "-Dmaven.antrun.skip=true",
+    "-Dremoteresources.skip=true",
+    "-Dmaven.buildNumber.skip=true",
+    "-Dbundle.skip=true",
+    "-Dmaven.compiler.useIncrementalCompilation=false",
+)
 MAX_DIAGNOSTIC = 3900
 _TRUNCATED = "\n... [diagnostic truncated]"
 
@@ -110,6 +129,27 @@ def _remove_generated(target: Path, created_dir: bool) -> None:
             pass  # no vacío: alberga ficheros ajenos que no nos incumben
 
 
+def _purge_generated_classes(repo: Path, test_name: str, since: float) -> None:
+    """Suprime las clases nacidas del test generado, para que ninguna sobreviva a la
+    validación: todo org/generated y, fuera de él, cualquier clase escrita durante
+    esta validación cuyo atributo SourceFile sea el fichero generado (el modelo
+    pudo declarar otro paquete e incluso pisar una clase fijada, que javac
+    recompilará la próxima vez por faltar)."""
+    generated = repo / GENERATED_CLASSES_DIR
+    if generated.exists():
+        shutil.rmtree(generated)
+    classes = repo / TEST_CLASSES_DIR
+    if not classes.is_dir():
+        return
+    marker = f"{test_name}.java".encode()
+    for path in classes.rglob("*.class"):
+        try:
+            if path.stat().st_mtime >= since and marker in path.read_bytes():
+                path.unlink()
+        except FileNotFoundError:
+            pass
+
+
 def filter_maven_output(output: str) -> str:
     """Conserva las líneas [ERROR] útiles y su contexto inmediato (mensaje de la
     excepción, símbolo y ubicación, marcos del test generado), sin repeticiones."""
@@ -153,7 +193,7 @@ class JavaMavenAdapter:
         # que ciertamente carece de cabecera Apache: se omite.
         return [
             str(self.mvn), "-o", "-B", "-q", f"-Dmaven.repo.local={self.m2}",
-            "-Drat.skip=true", f"-Dtest={test_name}",
+            "-Drat.skip=true", *FAST_FLAGS, f"-Dtest={test_name}",
             "-Dsurefire.failIfNoSpecifiedTests=false", "test",
         ]
 
@@ -161,6 +201,7 @@ class JavaMavenAdapter:
         target_dir = self.repo / GENERATED_DIR
         target = target_dir / f"{task.test_name}.java"
         started = time.perf_counter()
+        since = time.time() - 2  # holgura frente a la resolución del reloj del sistema de ficheros
         created_dir = not target_dir.exists()
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
@@ -178,7 +219,10 @@ class JavaMavenAdapter:
                     infra_failure=True,
                 )
         finally:
-            _remove_generated(target, created_dir)
+            try:
+                _remove_generated(target, created_dir)
+            finally:
+                _purge_generated_classes(self.repo, task.test_name, since)
 
         seconds = time.perf_counter() - started
         output = proc.stdout or ""

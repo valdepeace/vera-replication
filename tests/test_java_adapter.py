@@ -2,6 +2,8 @@
 integración contra el checkout fijado de Commons Lang."""
 from __future__ import annotations
 
+import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -68,7 +70,11 @@ def test_writes_file_then_removes_it(tmp_path):
     cmd, kwargs = runner.calls[0]
     assert cmd == [
         "mvn.cmd", "-o", "-B", "-q", "-Dmaven.repo.local=" + str(Path("E:/m2")),
-        "-Drat.skip=true", "-Dtest=StringUtils_isEmpty_Test",
+        "-Drat.skip=true",
+        "-Denforcer.skip=true", "-Dmaven.antrun.skip=true", "-Dremoteresources.skip=true",
+        "-Dmaven.buildNumber.skip=true", "-Dbundle.skip=true",
+        "-Dmaven.compiler.useIncrementalCompilation=false",
+        "-Dtest=StringUtils_isEmpty_Test",
         "-Dsurefire.failIfNoSpecifiedTests=false", "test",
     ]
     assert kwargs["cwd"] == tmp_path
@@ -298,6 +304,50 @@ def test_failure_without_error_lines_gives_explicit_message_not_raw_noise(tmp_pa
     assert len(diag) < 1000
 
 
+def write_class(path: Path, source_file: str, mtime: float | None = None) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\xca\xfe\xba\xbe...SourceFile..." + source_file.encode() + b"...")
+    if mtime is not None:
+        os.utime(path, (mtime, mtime))
+
+
+class CompilingRunner(FakeRunner):
+    """Además, simula javac: deja clases en target/test-classes durante la llamada."""
+
+    def __call__(self, cmd, **kwargs):
+        classes = self.repo / "target/test-classes"
+        write_class(classes / "org/generated/StringUtils_isEmpty_Test.class", "StringUtils_isEmpty_Test.java")
+        write_class(classes / "org/generated/Helper.class", "StringUtils_isEmpty_Test.java")
+        # El modelo declaró otro paquete y pisó una clase fijada del mismo nombre.
+        write_class(classes / "org/apache/x/PinnedTest.class", "StringUtils_isEmpty_Test.java")
+        # Recompilación legítima de una fuente fijada (por ejemplo, tras vaciar target/).
+        write_class(classes / "org/apache/x/OtherTest.class", "OtherTest.java")
+        return super().__call__(cmd, **kwargs)
+
+
+def test_generated_classes_do_not_survive_the_validation(tmp_path):
+    classes = tmp_path / "target/test-classes"
+    old = time.time() - 3600
+    write_class(classes / "org/apache/x/OldTest.class", "OldTest.java", mtime=old)
+    write_class(classes / "org/generated/Leftover_From_A_Crash.class", "Leftover_From_A_Crash.java", mtime=old)
+    adapter_with(tmp_path, CompilingRunner(tmp_path)).validate(make_task(), "class X {}")
+    assert not (classes / "org/generated").exists()
+    assert not (classes / "org/apache/x/PinnedTest.class").exists()
+    assert (classes / "org/apache/x/OtherTest.class").exists()
+    assert (classes / "org/apache/x/OldTest.class").exists()
+
+
+def test_generated_classes_are_purged_even_if_runner_raises(tmp_path):
+    class Exploding(CompilingRunner):
+        def __call__(self, cmd, **kwargs):
+            super().__call__(cmd, **kwargs)
+            raise subprocess.TimeoutExpired("mvn", 5)
+
+    adapter_with(tmp_path, Exploding(tmp_path)).validate(make_task(), "class X {}")
+    assert not (tmp_path / "target/test-classes/org/generated").exists()
+    assert not (tmp_path / "target/test-classes/org/apache/x/PinnedTest.class").exists()
+
+
 def test_default_runner_raises_timeout_and_kills_the_child():
     import sys
     started = time.perf_counter()
@@ -407,3 +457,83 @@ def test_integration_system_exit_is_model_failure(real_adapter):
     assert result.passed is False
     assert result.infra_failure is False, result.diagnostic
     assert len(result.diagnostic) < 4000
+
+
+@pytest.mark.integration
+@needs_java_env
+def test_integration_missing_import_is_compile_error(real_adapter):
+    task = make_task("VeraIntegImportTest")
+    code = (
+        "package org.generated;\n"
+        "import static org.junit.jupiter.api.Assertions.*;\n"
+        "import org.junit.jupiter.api.Test;\n"
+        "public class VeraIntegImportTest {\n"
+        "  @Test void t() { assertTrue(StringUtils.isEmpty(\"\")); }\n"
+        "}\n"
+    )
+    result = real_adapter.validate(task, code)
+    assert result.passed is False and result.infra_failure is False
+    assert "cannot find symbol" in result.diagnostic
+
+
+@pytest.mark.integration
+@needs_java_env
+def test_integration_wrong_class_name_is_compile_error(real_adapter):
+    task = make_task("VeraIntegNameTest")
+    code = HEADER + (
+        "public class SomethingElseTest {\n"
+        "  @Test void t() { assertTrue(StringUtils.isEmpty(\"\")); }\n"
+        "}\n"
+    )
+    result = real_adapter.validate(task, code)
+    assert result.passed is False and result.infra_failure is False
+    assert "should be declared in a file named SomethingElseTest.java" in result.diagnostic
+
+
+# --- Diferencial: el comando rápido frente al comando completo de la Tarea 7 ----
+
+DIFFERENTIAL_CASES = {
+    "VeraDiffOkTest": HEADER + "public class VeraDiffOkTest {\n"
+    "  @Test void t() { assertTrue(StringUtils.isEmpty(\"\")); assertFalse(StringUtils.isEmpty(\"x\")); }\n}\n",
+    "VeraDiffFailTest": HEADER + "public class VeraDiffFailTest {\n"
+    "  @Test void t() { assertTrue(StringUtils.isEmpty(\"x\")); }\n}\n",
+    "VeraDiffCompileTest": HEADER + "public class VeraDiffCompileTest {\n"
+    "  @Test void t() { int x = \"a\"; }\n}\n",
+    "VeraDiffNoTest": HEADER + "public class VeraDiffNoTest {\n"
+    "  void helper() { StringUtils.isEmpty(\"\"); }\n}\n",
+    "VeraDiffExitTest": HEADER + "public class VeraDiffExitTest {\n"
+    "  @Test void t() { System.exit(0); }\n}\n",
+    "VeraDiffImportTest": "package org.generated;\n"
+    "import static org.junit.jupiter.api.Assertions.*;\nimport org.junit.jupiter.api.Test;\n"
+    "public class VeraDiffImportTest {\n  @Test void t() { assertTrue(StringUtils.isEmpty(\"\")); }\n}\n",
+    "VeraDiffNameTest": HEADER + "public class WrongNameTest {\n"
+    "  @Test void t() { assertTrue(StringUtils.isEmpty(\"\")); }\n}\n",
+}
+
+
+def legacy_runner(cmd, **kwargs):
+    """El comando completo de la Tarea 7, sin las optimizaciones de la 7c."""
+    return run_killing_tree([a for a in cmd if a not in java_maven.FAST_FLAGS], **kwargs)
+
+
+def normalized(diagnostic: str) -> str:
+    """Neutraliza lo que varía entre dos ejecuciones idénticas: tiempos y los nombres
+    temporales del arranque de Surefire."""
+    text = re.sub(r"\d+(?:\.\d+)? s\b", "<t> s", diagnostic)
+    text = re.sub(r"\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d_\d+", "<ts>", text)
+    return re.sub(r"\d{6,}", "<n>", text)
+
+
+@pytest.mark.integration
+@needs_java_env
+@pytest.mark.parametrize("name", list(DIFFERENTIAL_CASES))
+def test_integration_fast_command_matches_full_command(real_adapter, name):
+    legacy = JavaMavenAdapter(
+        repo=Path(COMMONS_LANG_DIR), mvn=Path(MAVEN_BIN), m2=Path(M2_DIR), runner=legacy_runner
+    )
+    task = make_task(name)
+    fast = real_adapter.validate(task, DIFFERENTIAL_CASES[name])
+    full = legacy.validate(task, DIFFERENTIAL_CASES[name])
+    assert (fast.passed, fast.infra_failure) == (full.passed, full.infra_failure)
+    assert normalized(fast.diagnostic) == normalized(full.diagnostic)
+    assert not (Path(COMMONS_LANG_DIR) / "target/test-classes/org/generated").exists()

@@ -25,14 +25,27 @@ La carga en frío varía mucho entre corridas: en la puerta, ejecutada minutos d
 
 ## Maven (`scripts/measure_maven.py`)
 
-Validación con el adaptador real (`JavaMavenAdapter`, Maven 3.9.9 sin red, `-Dtest` limitado al test generado) de un test correcto de `StringUtils.isEmpty`. Las seis validaciones pasaron.
+Validación con el adaptador real (`JavaMavenAdapter`, Maven 3.9.9 sin red, `-Dtest` limitado al test generado) de un test correcto de `StringUtils.isEmpty`. Todas las validaciones pasaron.
 
-| Validación | Segundos |
-|---|---:|
-| 1.ª (proceso en frío) | 21,7 |
-| 2.ª – 6.ª (en caliente) | 19,3 (mediana); 18,9 – 19,8 |
+| Comando | Validación | Segundos |
+|---|---|---:|
+| Completo (Tarea 7), medición de la Tarea 11 | 1.ª (en frío) / 2.ª – 6.ª (mediana; rango) | 21,7 / 19,3; 18,9 – 19,8 |
+| Completo (Tarea 7), `measure_maven.py --full`, Tarea 7c | 1.ª / 2.ª – 6.ª | 20,2 / 19,8; 19,4 – 20,5 |
+| **Rápido (Tarea 7c)**, `measure_maven.py` | 1.ª / 2.ª – 6.ª | 6,6 / **6,5**; 6,4 – 6,7 |
 
-Cada invocación lanza una JVM nueva; la diferencia entre frío y caliente es pequeña (unos 2 s) y el coste fijo de Maven, unos 19 s, domina el de cada llamada al modelo.
+Desglose del comando completo (registro de Maven con marcas de tiempo, test correcto): arranque de Maven y lectura del POM unos 2 s; `enforcer`, `rat` (omitido), `artifact:check-buildplan` y `build-helper` unos 2,5 s; `antrun`, `remote-resources` y `buildnumber` unos 2,4 s; `compile` principal 0,4 s ("Nothing to compile"); `bundle:manifest` unos 4 s; **`testCompile` unos 14 s**, porque al cambiar una fuente el compilador recompila las 268 fuentes de test del módulo; `jacoco:prepare-agent` 0,5 s; `surefire:test` unos 4,5 s (bifurcación de la JVM incluida). Un `mvn -o validate` cuesta unos 4 s.
+
+Variantes probadas una a una sobre el mismo test (3 validaciones cada una, en caliente):
+
+| Variante | Segundos | Decisión |
+|---|---:|---|
+| V0, comando completo | 19,8 – 20,1 | referencia |
+| V1, V0 + `-Denforcer.skip -Dmaven.antrun.skip -Dremoteresources.skip -Dmaven.buildNumber.skip -Dbundle.skip -Djacoco.skip` | 16,8 – 16,9 | se conserva sin `jacoco.skip` |
+| V2, V0 + `-Dmaven.compiler.useIncrementalCompilation=false` (solo se compilan las fuentes obsoletas: "Compiling 1 source file") | 8,6 – 9,0 | se conserva |
+| V3, V1 + V2 | 6,6 – 6,8 | se conserva sin `jacoco.skip` (6,4 – 6,7) |
+| V4, V2 con los goals directos `resources:testResources compiler:testCompile surefire:test` | 5,2 – 5,5 | descartada: se salta la fase `compile` de las clases principales y la configuración por ejecución de los plugins; no compensa 1,3 s |
+
+`-Djacoco.skip` se descartó porque el agente de JaCoCo aparece en la línea "Command was" del diagnóstico de `System.exit` y el diagnóstico debía quedar idéntico. Comprobación diferencial (`tests/test_java_adapter.py::test_integration_fast_command_matches_full_command`): siete casos (test correcto, aserción falsa, error de compilación, fichero sin `@Test`, `System.exit`, import ausente, nombre de clase distinto del fichero) dan el mismo `passed`, el mismo `infra_failure` y el mismo diagnóstico filtrado (salvo tiempos y nombres temporales de Surefire) con ambos comandos. El suelo queda en unos 6,5 s, por debajo de 8 s.
 
 ## Puerta de calidad (`scripts/gate_model.py`)
 
@@ -71,17 +84,19 @@ Lo que la evidencia sostiene:
 Supuestos:
 
 - Generación en caliente: 3,42 s por llamada (media de las medias de la puerta). Una llamada de reparación lleva un prompt más largo (código anterior más diagnóstico de hasta 4.000 caracteres); se le suma 1 s, supuesto no medido.
-- Maven: 19,3 s por validación (mediana en caliente). Toda respuesta parseada se valida; en la puerta lo fueron 40 de 40.
-- *Baseline*: exactamente 1 llamada y 1 validación por ejecución: 22,7 s.
-- Reparación: entre 1 y 4 llamadas. **Se supone una media de 3,5 llamadas**, porque en el piloto Java del 21 de noviembre (`docs/findings.md`; excluido de toda métrica, aquí solo como referencia de planificación) 12 candidatos consumieron 30 reparaciones, 2,5 por candidato, con 1 de 12 pases directos. Con 3,5 llamadas: 3,42 + 2,5 × 4,42 + 3,5 × 19,3 ≈ 82 s por ejecución.
+Mismos supuestos que la estimación original de la Tarea 11; solo cambia el tiempo de Maven (Tarea 7c).
 
-| Escenario (llamadas medias en reparación) | *Baseline* | Reparación | Total |
-|---|---:|---:|---:|
-| Mínimo (1) | 7,6 h | 7,6 h | 15,2 h |
-| Central (2,5) | 7,6 h | 19,4 h | 27,0 h |
-| **Supuesto (3,5)** | 7,6 h | 27,4 h | **34,9 h** |
-| Máximo (4) | 7,6 h | 31,3 h | 38,9 h |
+- Maven: 6,5 s por validación (mediana en caliente del comando rápido; antes 19,3 s). Toda respuesta parseada se valida; en la puerta lo fueron 40 de 40.
+- *Baseline*: exactamente 1 llamada y 1 validación por ejecución: 9,9 s (antes 22,7 s).
+- Reparación: entre 1 y 4 llamadas. **Se supone una media de 3,5 llamadas (2,5 reparaciones por candidato)**, porque en el piloto Java del 21 de noviembre (`docs/findings.md`; excluido de toda métrica, aquí solo como referencia de planificación) 12 candidatos consumieron 30 reparaciones, 2,5 por candidato, con 1 de 12 pases directos. Con 3,5 llamadas: 3,42 + 2,5 × 4,42 + 3,5 × 6,5 ≈ 37 s por ejecución (antes 82 s).
 
-Maven supone en torno al 85 % del tiempo de cada llamada validada, de modo que la estimación es mucho más sensible al número de validaciones que a la velocidad de los modelos. Las cargas de modelo (cuatro, una por modelo gracias a la descarga entre modelos; hasta 2,5 min cada una) son despreciables.
+| Escenario (llamadas medias en reparación) | *Baseline* | Reparación | Total | Total con el comando completo (19,3 s) |
+|---|---:|---:|---:|---:|
+| Mínimo (1 llamada, 0 reparaciones) | 3,3 h | 3,3 h | 6,6 h | 15,2 h |
+| Intermedio (2,5 llamadas, 1,5 reparaciones) | 3,3 h | 8,8 h | 12,1 h | 27,0 h |
+| **Supuesto (3,5 llamadas, 2,5 reparaciones, piloto)** | 3,3 h | 12,4 h | **15,7 h** | 34,9 h |
+| Máximo (4 llamadas, 3 reparaciones) | 3,3 h | 14,2 h | 17,5 h | 38,9 h |
 
-Incertidumbre: muestras de 10 llamadas por modelo; la tasa de éxito del Java real con estos modelos y 20 métodos es desconocida y es la que fija el número de reparaciones; los reintentos por fallos de infraestructura (hasta 2 por ejecución) no están incluidos; el tiempo de Maven puede variar con tests que fallan, que compilan con errores o que agotan el tiempo (300 s de tope); el +1 s por llamada de reparación no se ha medido. Una cifra prudente para reservar la máquina es de 35 a 40 horas.
+La fila que antes se rotulaba "Central (2,5)" usaba 2,5 llamadas, no las 2,5 reparaciones del piloto (que son 3,5 llamadas, la fila del supuesto); se rotula ahora como intermedia. Maven supone en torno al 65 % del tiempo de cada llamada validada (antes, el 85 %), de modo que la estimación sigue siendo más sensible al número de validaciones que a la velocidad de los modelos. Las cargas de modelo (cuatro, una por modelo gracias a la descarga entre modelos; hasta 2,5 min cada una) son despreciables.
+
+Incertidumbre: muestras de 10 llamadas por modelo; la tasa de éxito del Java real con estos modelos y 20 métodos es desconocida y es la que fija el número de reparaciones; los reintentos por fallos de infraestructura (hasta 2 por ejecución) no están incluidos; el tiempo de Maven puede variar con tests que fallan, que compilan con errores o que agotan el tiempo (300 s de tope); el +1 s por llamada de reparación no se ha medido. Una cifra prudente para reservar la máquina es de 16 a 20 horas (antes, de 35 a 40).

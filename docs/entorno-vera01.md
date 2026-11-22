@@ -23,6 +23,10 @@ Construye con JDK 11 sin necesidad de otro JDK.
    Añadió al repositorio local (unos 0,7 MiB): `org.apache.maven.surefire:surefire-junit-platform:3.5.4`, `org.apache.maven.surefire:common-java5:3.5.4`, `org.apache.maven.surefire:surefire-providers:3.5.4` (pom) y `org.junit.platform:junit-platform-{commons,engine,launcher}:1.12.1`. Tamaño resultante de `E:\vera-data\m2`: 354 MiB (358.771.073 bytes).
 5. Verificar: `.venv/Scripts/python scripts/env/check_env.py` (código 0 si el commit es el fijado, ambos servidores contestan, están los 4 modelos y una validación offline real con Surefire ejecuta exactamente un test JUnit 5 trivial en `src/test/java/org/generated/`, con el comando exacto del adaptador, `-Drat.skip=true` incluido; el fichero se retira siempre. Si falta un artefacto en `E:\vera-data\m2`, el fallo lo nombra).
 
+Comando de validación del adaptador (`src/vera/adapters/java_maven.py`, Tarea 7c), desde `E:\vera-data\commons-lang`:
+`mvn -o -B -q -Dmaven.repo.local=E:/vera-data/m2 -Drat.skip=true -Denforcer.skip=true -Dmaven.antrun.skip=true -Dremoteresources.skip=true -Dmaven.buildNumber.skip=true -Dbundle.skip=true -Dmaven.compiler.useIncrementalCompilation=false -Dtest=<test_name> -Dsurefire.failIfNoSpecifiedTests=false test`.
+Con `useIncrementalCompilation=false` javac compila solo las fuentes obsoletas (el test generado), contra las clases de `target/test-classes`; el adaptador suprime después las clases nacidas del test generado. Requiere que `target/` esté construido (paso 3); si se vacía, la primera validación recompila el módulo de test entero, pues todas sus fuentes quedan obsoletas (comportamiento deducido, no medido).
+
 No se toca el `PATH` global ni `%USERPROFILE%\.m2`. La lógica vive en `src/vera/envinfo.py`; `scripts/env/check_env.py` es un envoltorio fino.
 
 ## Tareas de Java fijadas
