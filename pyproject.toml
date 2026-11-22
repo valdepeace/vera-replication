@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vera"
+version = "0.1.0"
+description = "VERA-01: replica de generacion de tests con modelos locales y presupuesto de reparacion"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+analysis = ["pandas", "statsmodels", "scipy"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"
+pythonpath = ["src"]
+markers = ["integration: pruebas que requieren servicios externos"]

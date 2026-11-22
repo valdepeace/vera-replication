@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 .superpowers/
 *.tmp
+*.egg-info/
+results/runs/**/workspace/
