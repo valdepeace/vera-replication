@@ -1,0 +1,202 @@
+[
+  {
+    "id": "java-StringUtils-isEmpty",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isEmpty",
+    "focal_source": "public static boolean isEmpty(final CharSequence cs) {\n        return cs == null || cs.length() == 0;\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_isEmpty_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-isBlank",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isBlank",
+    "focal_source": "public static boolean isBlank(final CharSequence cs) {\n        final int strLen = length(cs);\n        if (strLen == 0) {\n            return true;\n        }\n        for (int i = 0; i < strLen; i++) {\n            if (!Character.isWhitespace(cs.charAt(i))) {\n                return false;\n            }\n        }\n        return true;\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_isBlank_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-isNotEmpty",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isNotEmpty",
+    "focal_source": "public static boolean isNotEmpty(final CharSequence cs) {\n        return !isEmpty(cs);\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_isNotEmpty_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-isNotBlank",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isNotBlank",
+    "focal_source": "public static boolean isNotBlank(final CharSequence cs) {\n        return !isBlank(cs);\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_isNotBlank_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-length",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "length",
+    "focal_source": "public static int length(final CharSequence cs) {\n        return cs == null ? 0 : cs.length();\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_length_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-trim",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "trim",
+    "focal_source": "public static String trim(final String str) {\n        return str == null ? null : str.trim();\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_trim_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-trimToEmpty",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "trimToEmpty",
+    "focal_source": "public static String trimToEmpty(final String str) {\n        return str == null ? EMPTY : str.trim();\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_trimToEmpty_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-trimToNull",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "trimToNull",
+    "focal_source": "public static String trimToNull(final String str) {\n        final String ts = trim(str);\n        return isEmpty(ts) ? null : ts;\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_trimToNull_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-equals",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "equals",
+    "focal_source": "@Deprecated\n    public static boolean equals(final CharSequence cs1, final CharSequence cs2) {\n        return Strings.CS.equals(cs1, cs2);\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_equals_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-StringUtils-equalsIgnoreCase",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "equalsIgnoreCase",
+    "focal_source": "@Deprecated\n    public static boolean equalsIgnoreCase(final CharSequence cs1, final CharSequence cs2) {\n        return Strings.CI.equals(cs1, cs2);\n    }",
+    "container": "StringUtils",
+    "test_name": "Generated_StringUtils_equalsIgnoreCase_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-CharUtils-isAscii",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isAscii",
+    "focal_source": "public static boolean isAscii(final char ch) {\n        return ch < 128;\n    }",
+    "container": "CharUtils",
+    "test_name": "Generated_CharUtils_isAscii_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-CharUtils-isAsciiAlpha",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isAsciiAlpha",
+    "focal_source": "public static boolean isAsciiAlpha(final char ch) {\n        return isAsciiAlphaUpper(ch) || isAsciiAlphaLower(ch);\n    }",
+    "container": "CharUtils",
+    "test_name": "Generated_CharUtils_isAsciiAlpha_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-CharUtils-isAsciiNumeric",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isAsciiNumeric",
+    "focal_source": "public static boolean isAsciiNumeric(final char ch) {\n        return ch >= '0' && ch <= '9';\n    }",
+    "container": "CharUtils",
+    "test_name": "Generated_CharUtils_isAsciiNumeric_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-CharUtils-toIntValue",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "toIntValue",
+    "focal_source": "public static int toIntValue(final char ch) {\n        if (!isAsciiNumeric(ch)) {\n            throw new IllegalArgumentException(\"The character \" + ch + \" is not in the range '0' - '9'\");\n        }\n        return ch - 48;\n    }",
+    "container": "CharUtils",
+    "test_name": "Generated_CharUtils_toIntValue_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-CharUtils-toChar",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "toChar",
+    "focal_source": "public static char toChar(final Character ch, final char defaultValue) {\n        return ch != null ? ch.charValue() : defaultValue;\n    }",
+    "container": "CharUtils",
+    "test_name": "Generated_CharUtils_toChar_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-BooleanUtils-isTrue",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "isTrue",
+    "focal_source": "public static boolean isTrue(final Boolean bool) {\n        return Boolean.TRUE.equals(bool);\n    }",
+    "container": "BooleanUtils",
+    "test_name": "Generated_BooleanUtils_isTrue_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-BooleanUtils-negate",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "negate",
+    "focal_source": "public static Boolean negate(final Boolean bool) {\n        if (bool == null) {\n            return null;\n        }\n        return bool.booleanValue() ? Boolean.FALSE : Boolean.TRUE;\n    }",
+    "container": "BooleanUtils",
+    "test_name": "Generated_BooleanUtils_negate_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-BooleanUtils-toBoolean",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "toBoolean",
+    "focal_source": "public static boolean toBoolean(final String str) {\n        return toBooleanObject(str) == Boolean.TRUE;\n    }",
+    "container": "BooleanUtils",
+    "test_name": "Generated_BooleanUtils_toBoolean_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-BooleanUtils-and",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "and",
+    "focal_source": "public static boolean and(final boolean... array) {\n        ObjectUtils.requireNonEmpty(array, \"array\");\n        for (final boolean element : array) {\n            if (!element) {\n                return false;\n            }\n        }\n        return true;\n    }",
+    "container": "BooleanUtils",
+    "test_name": "Generated_BooleanUtils_and_Test",
+    "import_hint": ""
+  },
+  {
+    "id": "java-BooleanUtils-toInteger",
+    "language": "java",
+    "project": "commons-lang",
+    "focal_name": "toInteger",
+    "focal_source": "public static int toInteger(final boolean bool) {\n        return bool ? 1 : 0;\n    }",
+    "container": "BooleanUtils",
+    "test_name": "Generated_BooleanUtils_toInteger_Test",
+    "import_hint": ""
+  }
+]

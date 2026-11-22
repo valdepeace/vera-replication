@@ -25,6 +25,10 @@ Construye con JDK 11 sin necesidad de otro JDK.
 
 No se toca el `PATH` global ni `%USERPROFILE%\.m2`. La lógica vive en `src/vera/envinfo.py`; `scripts/env/check_env.py` es un envoltorio fino.
 
+## Tareas de Java fijadas
+
+Las veinte firmas del plan existen y son inequívocas en el commit fijado; no se sustituyó ninguna. Cabe señalar que `StringUtils.equals` y `StringUtils.equalsIgnoreCase` figuran como `@Deprecated` en dicho commit; se conservan, y la anotación permanece en el `focal_source` (sin Javadoc). `scripts/build_java_tasks.py` (envoltorio de `src/vera/javasrc.py`) escribe `benchmarks/vera01/replica/java/tasks.json`.
+
 ## Limpieza final
 
 Previa confirmación expresa: detener el servidor 11435 y borrar `E:\ollama-vera` y `E:\vera-data`. Inventario completo en `docs/ollama-vera-models.md`.
