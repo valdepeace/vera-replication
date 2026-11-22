@@ -1,0 +1,202 @@
+[
+  {
+    "id": "python-predicates-is_blank",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "is_blank",
+    "focal_source": "def is_blank(text: t.Any) -> TypeGuard[str]:\n    try:\n        ret = bool(re.match(r\"^(\\s+)?$\", text))\n    except TypeError:\n        ret = False\n\n    return ret",
+    "container": "pydash.predicates",
+    "test_name": "test_generated_predicates_is_blank",
+    "import_hint": "from pydash import is_blank"
+  },
+  {
+    "id": "python-predicates-is_boolean",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "is_boolean",
+    "focal_source": "def is_boolean(value: t.Any) -> TypeGuard[bool]:\n    return isinstance(value, bool)",
+    "container": "pydash.predicates",
+    "test_name": "test_generated_predicates_is_boolean",
+    "import_hint": "from pydash import is_boolean"
+  },
+  {
+    "id": "python-predicates-is_empty",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "is_empty",
+    "focal_source": "def is_empty(value: t.Any) -> bool:\n    return is_boolean(value) or is_number(value) or not value",
+    "container": "pydash.predicates",
+    "test_name": "test_generated_predicates_is_empty",
+    "import_hint": "from pydash import is_empty"
+  },
+  {
+    "id": "python-predicates-is_none",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "is_none",
+    "focal_source": "def is_none(value: t.Any) -> TypeGuard[None]:\n    return value is None",
+    "container": "pydash.predicates",
+    "test_name": "test_generated_predicates_is_none",
+    "import_hint": "from pydash import is_none"
+  },
+  {
+    "id": "python-predicates-is_string",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "is_string",
+    "focal_source": "def is_string(value: t.Any) -> TypeGuard[str]:\n    return isinstance(value, str)",
+    "container": "pydash.predicates",
+    "test_name": "test_generated_predicates_is_string",
+    "import_hint": "from pydash import is_string"
+  },
+  {
+    "id": "python-strings-chars",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "chars",
+    "focal_source": "def chars(text: t.Any) -> t.List[str]:\n    return list(pyd.to_string(text))",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_chars",
+    "import_hint": "from pydash import chars"
+  },
+  {
+    "id": "python-strings-clean",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "clean",
+    "focal_source": "def clean(text: t.Any) -> str:\n    text = pyd.to_string(text)\n    return \" \".join(pyd.compact(text.split()))",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_clean",
+    "import_hint": "from pydash import clean"
+  },
+  {
+    "id": "python-strings-count_substr",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "count_substr",
+    "focal_source": "def count_substr(text: t.Any, subtext: t.Any) -> int:\n    if text is None or subtext is None:\n        return 0\n\n    text = pyd.to_string(text)\n    subtext = pyd.to_string(subtext)\n\n    return text.count(subtext)",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_count_substr",
+    "import_hint": "from pydash import count_substr"
+  },
+  {
+    "id": "python-strings-decapitalize",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "decapitalize",
+    "focal_source": "def decapitalize(text: t.Any) -> str:\n    text = pyd.to_string(text)\n    return text[:1].lower() + text[1:]",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_decapitalize",
+    "import_hint": "from pydash import decapitalize"
+  },
+  {
+    "id": "python-strings-ends_with",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "ends_with",
+    "focal_source": "def ends_with(text: t.Any, target: t.Any, position: t.Union[int, None] = None) -> bool:\n    target = pyd.to_string(target)\n    text = pyd.to_string(text)\n\n    if position is None:\n        position = len(text)\n\n    return text[:position].endswith(target)",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_ends_with",
+    "import_hint": "from pydash import ends_with"
+  },
+  {
+    "id": "python-strings-ensure_ends_with",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "ensure_ends_with",
+    "focal_source": "def ensure_ends_with(text: t.Any, suffix: t.Any) -> str:\n    text = pyd.to_string(text)\n    suffix = pyd.to_string(suffix)\n    if text.endswith(suffix):\n        return text\n    return f\"{text}{suffix}\"",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_ensure_ends_with",
+    "import_hint": "from pydash import ensure_ends_with"
+  },
+  {
+    "id": "python-strings-ensure_starts_with",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "ensure_starts_with",
+    "focal_source": "def ensure_starts_with(text: t.Any, prefix: t.Any) -> str:\n    text = pyd.to_string(text)\n    prefix = pyd.to_string(prefix)\n    if text.startswith(prefix):\n        return text\n    return f\"{prefix}{text}\"",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_ensure_starts_with",
+    "import_hint": "from pydash import ensure_starts_with"
+  },
+  {
+    "id": "python-strings-has_substr",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "has_substr",
+    "focal_source": "def has_substr(text: t.Any, subtext: t.Any) -> bool:\n    text = pyd.to_string(text)\n    subtext = pyd.to_string(subtext)\n    return text.find(subtext) >= 0",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_has_substr",
+    "import_hint": "from pydash import has_substr"
+  },
+  {
+    "id": "python-strings-lower_first",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "lower_first",
+    "focal_source": "def lower_first(text: str) -> str:\n    return text[:1].lower() + text[1:]",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_lower_first",
+    "import_hint": "from pydash import lower_first"
+  },
+  {
+    "id": "python-strings-upper_first",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "upper_first",
+    "focal_source": "def upper_first(text: str) -> str:\n    return text[:1].upper() + text[1:]",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_upper_first",
+    "import_hint": "from pydash import upper_first"
+  },
+  {
+    "id": "python-strings-capitalize",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "capitalize",
+    "focal_source": "def capitalize(text: t.Any, strict: bool = True) -> str:\n    text = pyd.to_string(text)\n    return text.capitalize() if strict else text[:1].upper() + text[1:]",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_capitalize",
+    "import_hint": "from pydash import capitalize"
+  },
+  {
+    "id": "python-strings-starts_with",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "starts_with",
+    "focal_source": "def starts_with(text: t.Any, target: t.Any, position: int = 0) -> bool:\n    text = pyd.to_string(text)\n    target = pyd.to_string(target)\n    return text[position:].startswith(target)",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_starts_with",
+    "import_hint": "from pydash import starts_with"
+  },
+  {
+    "id": "python-strings-trim",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "trim",
+    "focal_source": "def trim(text: t.Any, chars: t.Union[str, None] = None) -> str:\n    text = pyd.to_string(text)\n    return text.strip(chars)",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_trim",
+    "import_hint": "from pydash import trim"
+  },
+  {
+    "id": "python-strings-trim_start",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "trim_start",
+    "focal_source": "def trim_start(text: t.Any, chars: t.Union[str, None] = None) -> str:\n    text = pyd.to_string(text)\n    return text.lstrip(chars)",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_trim_start",
+    "import_hint": "from pydash import trim_start"
+  },
+  {
+    "id": "python-strings-trim_end",
+    "language": "python",
+    "project": "pydash",
+    "focal_name": "trim_end",
+    "focal_source": "def trim_end(text: t.Any, chars: t.Union[str, None] = None) -> str:\n    text = pyd.to_string(text)\n    return text.rstrip(chars)",
+    "container": "pydash.strings",
+    "test_name": "test_generated_strings_trim_end",
+    "import_hint": "from pydash import trim_end"
+  }
+]

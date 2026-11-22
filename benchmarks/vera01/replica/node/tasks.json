@@ -1,0 +1,202 @@
+[
+  {
+    "id": "node-isEmpty",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isEmpty",
+    "focal_source": "const default_is_empty_options = {\n  ignore_whitespace: false,\n};\n\nexport default function isEmpty(str, options) {\n  assertString(str);\n  options = merge(options, default_is_empty_options);\n\n  return (options.ignore_whitespace ? str.trim().length : str.length) === 0;\n}",
+    "container": "isEmpty.js",
+    "test_name": "generated_isEmpty.test.mjs",
+    "import_hint": "import isEmpty from './isEmpty.js';"
+  },
+  {
+    "id": "node-isBoolean",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isBoolean",
+    "focal_source": "const defaultOptions = { loose: false };\nconst strictBooleans = ['true', 'false', '1', '0'];\nconst looseBooleans = [...strictBooleans, 'yes', 'no'];\n\nexport default function isBoolean(str, options = defaultOptions) {\n  assertString(str);\n\n  if (options.loose) {\n    return includes(looseBooleans, str.toLowerCase());\n  }\n\n  return includes(strictBooleans, str);\n}",
+    "container": "isBoolean.js",
+    "test_name": "generated_isBoolean.test.mjs",
+    "import_hint": "import isBoolean from './isBoolean.js';"
+  },
+  {
+    "id": "node-isAscii",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isAscii",
+    "focal_source": "const ascii = /^[\\x00-\\x7F]+$/;\n\nexport default function isAscii(str) {\n  assertString(str);\n  return ascii.test(str);\n}",
+    "container": "isAscii.js",
+    "test_name": "generated_isAscii.test.mjs",
+    "import_hint": "import isAscii from './isAscii.js';"
+  },
+  {
+    "id": "node-isLowercase",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isLowercase",
+    "focal_source": "export default function isLowercase(str) {\n  assertString(str);\n  return str === str.toLowerCase();\n}",
+    "container": "isLowercase.js",
+    "test_name": "generated_isLowercase.test.mjs",
+    "import_hint": "import isLowercase from './isLowercase.js';"
+  },
+  {
+    "id": "node-isUppercase",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isUppercase",
+    "focal_source": "export default function isUppercase(str) {\n  assertString(str);\n  return str === str.toUpperCase();\n}",
+    "container": "isUppercase.js",
+    "test_name": "generated_isUppercase.test.mjs",
+    "import_hint": "import isUppercase from './isUppercase.js';"
+  },
+  {
+    "id": "node-isMultibyte",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isMultibyte",
+    "focal_source": "const multibyte = /[^\\x00-\\x7F]/;\n\nexport default function isMultibyte(str) {\n  assertString(str);\n  return multibyte.test(str);\n}",
+    "container": "isMultibyte.js",
+    "test_name": "generated_isMultibyte.test.mjs",
+    "import_hint": "import isMultibyte from './isMultibyte.js';"
+  },
+  {
+    "id": "node-trim",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "trim",
+    "focal_source": "export default function trim(str, chars) {\n  return rtrim(ltrim(str, chars), chars);\n}",
+    "container": "trim.js",
+    "test_name": "generated_trim.test.mjs",
+    "import_hint": "import trim from './trim.js';"
+  },
+  {
+    "id": "node-isWhitelisted",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isWhitelisted",
+    "focal_source": "export default function isWhitelisted(str, chars) {\n  assertString(str);\n  for (let i = str.length - 1; i >= 0; i--) {\n    if (chars.indexOf(str[i]) === -1) {\n      return false;\n    }\n  }\n  return true;\n}",
+    "container": "isWhitelisted.js",
+    "test_name": "generated_isWhitelisted.test.mjs",
+    "import_hint": "import isWhitelisted from './isWhitelisted.js';"
+  },
+  {
+    "id": "node-isSurrogatePair",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isSurrogatePair",
+    "focal_source": "const surrogatePair = /[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]/;\n\nexport default function isSurrogatePair(str) {\n  assertString(str);\n  return surrogatePair.test(str);\n}",
+    "container": "isSurrogatePair.js",
+    "test_name": "generated_isSurrogatePair.test.mjs",
+    "import_hint": "import isSurrogatePair from './isSurrogatePair.js';"
+  },
+  {
+    "id": "node-isHexadecimal",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isHexadecimal",
+    "focal_source": "const hexadecimal = /^(0x|0h)?[0-9A-F]+$/i;\n\nexport default function isHexadecimal(str) {\n  assertString(str);\n  return hexadecimal.test(str);\n}",
+    "container": "isHexadecimal.js",
+    "test_name": "generated_isHexadecimal.test.mjs",
+    "import_hint": "import isHexadecimal from './isHexadecimal.js';"
+  },
+  {
+    "id": "node-isOctal",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isOctal",
+    "focal_source": "const octal = /^(0o)?[0-7]+$/i;\n\nexport default function isOctal(str) {\n  assertString(str);\n  return octal.test(str);\n}",
+    "container": "isOctal.js",
+    "test_name": "generated_isOctal.test.mjs",
+    "import_hint": "import isOctal from './isOctal.js';"
+  },
+  {
+    "id": "node-isNumeric",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isNumeric",
+    "focal_source": "const numericNoSymbols = /^[0-9]+$/;\n\nexport default function isNumeric(str, options) {\n  assertString(str);\n  if (options && options.no_symbols) {\n    return numericNoSymbols.test(str);\n  }\n  return (new RegExp(`^[+-]?([0-9]*[${(options || {}).locale ? decimal[options.locale] : '.'}])?[0-9]+$`)).test(str);\n}",
+    "container": "isNumeric.js",
+    "test_name": "generated_isNumeric.test.mjs",
+    "import_hint": "import isNumeric from './isNumeric.js';"
+  },
+  {
+    "id": "node-isSlug",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isSlug",
+    "focal_source": "const charsetRegex = /^[a-z0-9](?!.*[-_]{2,})(?:[a-z0-9_-]*[a-z0-9])?$/;\n\nexport default function isSlug(str) {\n  assertString(str);\n  return (charsetRegex.test(str));\n}",
+    "container": "isSlug.js",
+    "test_name": "generated_isSlug.test.mjs",
+    "import_hint": "import isSlug from './isSlug.js';"
+  },
+  {
+    "id": "node-isMD5",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isMD5",
+    "focal_source": "const md5 = /^[a-f0-9]{32}$/;\n\nexport default function isMD5(str) {\n  assertString(str);\n  return md5.test(str);\n}",
+    "container": "isMD5.js",
+    "test_name": "generated_isMD5.test.mjs",
+    "import_hint": "import isMD5 from './isMD5.js';"
+  },
+  {
+    "id": "node-isLength",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "isLength",
+    "focal_source": "export default function isLength(str, options) {\n  assertString(str);\n  let min;\n  let max;\n\n  if (typeof (options) === 'object') {\n    min = options.min || 0;\n    max = options.max;\n  } else { // backwards compatibility: isLength(str, min [, max])\n    min = arguments[1] || 0;\n    max = arguments[2];\n  }\n\n  const presentationSequences = str.match(/[^\\uFE0F\\uFE0E][\\uFE0F\\uFE0E]/g) || [];\n  const surrogatePairs = str.match(/[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]/g) || [];\n  const len = str.length - presentationSequences.length - surrogatePairs.length;\n  const isInsideRange = len >= min && (typeof max === 'undefined' || len <= max);\n\n  if (isInsideRange && Array.isArray(options?.discreteLengths)) {\n    return options.discreteLengths.some(discreteLen => discreteLen === len);\n  }\n\n  return isInsideRange;\n}",
+    "container": "isLength.js",
+    "test_name": "generated_isLength.test.mjs",
+    "import_hint": "import isLength from './isLength.js';"
+  },
+  {
+    "id": "node-equals",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "equals",
+    "focal_source": "export default function equals(str, comparison) {\n  assertString(str);\n  return str === comparison;\n}",
+    "container": "equals.js",
+    "test_name": "generated_equals.test.mjs",
+    "import_hint": "import equals from './equals.js';"
+  },
+  {
+    "id": "node-contains",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "contains",
+    "focal_source": "const defaultContainsOptions = {\n  ignoreCase: false,\n  minOccurrences: 1,\n};\n\nexport default function contains(str, elem, options) {\n  assertString(str);\n  options = merge(options, defaultContainsOptions);\n\n  if (options.ignoreCase) {\n    return str.toLowerCase().split(toString(elem).toLowerCase()).length > options.minOccurrences;\n  }\n\n  return str.split(toString(elem)).length > options.minOccurrences;\n}",
+    "container": "contains.js",
+    "test_name": "generated_contains.test.mjs",
+    "import_hint": "import contains from './contains.js';"
+  },
+  {
+    "id": "node-toBoolean",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "toBoolean",
+    "focal_source": "export default function toBoolean(str, strict) {\n  assertString(str);\n  if (strict) {\n    return str === '1' || /^true$/i.test(str);\n  }\n  return str !== '0' && !/^false$/i.test(str) && str !== '';\n}",
+    "container": "toBoolean.js",
+    "test_name": "generated_toBoolean.test.mjs",
+    "import_hint": "import toBoolean from './toBoolean.js';"
+  },
+  {
+    "id": "node-ltrim",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "ltrim",
+    "focal_source": "export default function ltrim(str, chars) {\n  assertString(str);\n  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping\n  const pattern = chars ? new RegExp(`^[${chars.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}]+`, 'g') : /^\\s+/g;\n  return str.replace(pattern, '');\n}",
+    "container": "ltrim.js",
+    "test_name": "generated_ltrim.test.mjs",
+    "import_hint": "import ltrim from './ltrim.js';"
+  },
+  {
+    "id": "node-rtrim",
+    "language": "node",
+    "project": "validator.js",
+    "focal_name": "rtrim",
+    "focal_source": "export default function rtrim(str, chars) {\n  assertString(str);\n  if (chars) {\n    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#Escaping\n    const pattern = new RegExp(`[${chars.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}]+$`, 'g');\n    return str.replace(pattern, '');\n  }\n  // Use a faster and more safe than regex trim method https://blog.stevenlevithan.com/archives/faster-trim-javascript\n  let strIndex = str.length - 1;\n  while (/\\s/.test(str.charAt(strIndex))) {\n    strIndex -= 1;\n  }\n\n  return str.slice(0, strIndex + 1);\n}",
+    "container": "rtrim.js",
+    "test_name": "generated_rtrim.test.mjs",
+    "import_hint": "import rtrim from './rtrim.js';"
+  }
+]

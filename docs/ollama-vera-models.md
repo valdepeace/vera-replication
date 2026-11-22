@@ -47,3 +47,7 @@ Checksum SHA-512 de `apache-maven-3.9.9-bin.zip` (coincide con el publicado por 
 3. Confirmar con `Get-PSDrive E` que se recupera el espacio.
 
 Esta limpieza se realiza solo previa confirmación expresa de la persona responsable.
+
+## Proyectos de Python y Node descargados en E:\vera-data (Tarea 16)
+
+`E:\vera-data\pydash` (clon, 6 MiB) y `E:\vera-data\validatorjs` (clon más `node_modules` y compilación, 99 MiB). Detalle y commits en `docs/proyectos-python-node.md`. Ninguno está bajo control de versiones de este repositorio.
