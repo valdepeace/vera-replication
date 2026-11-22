@@ -36,3 +36,20 @@ Las veinte firmas del plan existen y son inequívocas en el commit fijado; no se
 ## Limpieza final
 
 Previa confirmación expresa: detener el servidor 11435 y borrar `E:\ollama-vera` y `E:\vera-data`. Inventario completo en `docs/ollama-vera-models.md`.
+
+
+### Known limits of the static Node audit
+
+Cabe señalar que `audit_node` es un análisis textual, no una ejecución: ante la duda resuelve hacia TEST_FREE o ASSERTION_FREE (se prefiere infravalorar REAL). Cierra, entre otros, estos patrones: `.catch(...)` sin relanzar, `return`/`throw`/`process.exit` incondicional previo, `if (false|0|null)`, `while (false)`, funciones locales nunca invocadas, helpers locales que envuelven la llamada en try/catch sin relanzar, `skip`/`todo` (opciones, `t.skip()`, `t.todo()`, `describe.skip`), catch que no relanza, `finally { return; }`, `.unref()`/`clearTimeout` del temporizador, `process.exit`/`process.on('exit'|'uncaughtException'|'unhandledRejection')` en cualquier parte del fichero, `assert` local falso y `assert.x = ...`.
+
+Lo que no puede cerrarse estáticamente (y por tanto puede contarse como REAL aun sin propagar el fallo):
+
+- Condiciones en tiempo de ejecución que resultan falsas: `if (process.env.X) { assert... }`, `if (flag)` con `flag` falso, `if (1 > 2)`, `if (!!0)`.
+- `.then(onOk, onErr)` con segundo argumento que traga, y `.catch` cuyo callback es un identificador que no relanza (se tratan como tragado salvo `fail`/`reject`; el resto de formas indirectas no).
+- Funciones de usuario que reciben el callback con la aserción y nunca lo invocan, salvo que sean helpers con try/catch sin relanzar del mismo fichero; helpers importados de otros módulos.
+- `return`/`throw` condicionales cuya condición es siempre cierta (`if (true) return;` se trata como condicional).
+- Funciones referenciadas solo como valor (`const f = () => ...; list.push(f)`) se dan por no invocadas; pasadas a invocadores no listados (más allá de then, setTimeout, forEach, map, test, it...) también.
+- Aserciones en callbacks de eventos (`emitter.on(...)`) que nadie emite; promesas que no se resuelven nunca; `await` de una promesa que el propio test cancela.
+- Tests pasados por referencia a una función importada de otro módulo, o resueltos mediante alias dinámicos (`const t = cond ? test : () => {}`).
+- Sombreado de `assert` mediante parámetros o ámbitos interiores, o mutación indirecta (`Object.assign(assert, ...)`).
+- Mutación dinámica del código: queda fuera de alcance (no hay auditoría dinámica).

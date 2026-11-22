@@ -52,7 +52,7 @@ def filter_node_output(output: str, returncode: int) -> str:
     kept, seen = [], set()
     for line in text.split("\n"):
         line = line.rstrip()[:_LINE_CHARS]
-        if not line.strip() or _NOISE_RE.match(line) or line in seen and line.strip() != "}":
+        if not line.strip() or _NOISE_RE.match(line) or (line in seen and line.strip() != "}"):
             continue
         seen.add(line)
         kept.append(line)

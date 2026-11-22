@@ -321,29 +321,48 @@ def _js_bindings(raw: str, module_ok) -> list[tuple[str, str, str]]:
     return found
 
 
-def _js_registration_res(raw: str) -> list[tuple[str, re.Pattern[str]]]:
-    """Patrones de las llamadas que registran tests o suites en node:test."""
-    patterns: list[tuple[str, re.Pattern[str]]] = []
+def _js_registration_res(raw: str) -> list[tuple[str, re.Pattern[str], re.Pattern[str]]]:
+    """Patrones (tipo, llamada, llamada con skip/todo) de node:test."""
+    out: list[tuple[str, re.Pattern[str], re.Pattern[str]]] = []
+
+    def add(kind: str, base: str) -> None:
+        out.append((kind, re.compile(rf"(?<![\w$.]){base}(?:\s*\.\s*only)?\s*\("),
+                    re.compile(rf"(?<![\w$.]){base}\s*\.\s*(?:skip|todo)\s*\(")))
+
     for form, imported, local in _js_bindings(raw, lambda s: s == "node:test"):
         name = re.escape(local)
         if form == "named" and imported in _JS_TEST_KINDS:
-            patterns.append((_JS_TEST_KINDS[imported],
-                             re.compile(rf"(?<![\w$.]){name}(?:\s*\.\s*only)?\s*\(")))
+            add(_JS_TEST_KINDS[imported], name)
         elif form in ("default", "namespace"):
             if form == "default":
-                patterns.append(("test", re.compile(rf"(?<![\w$.]){name}(?:\s*\.\s*only)?\s*\(")))
+                add("test", name)
             for member, kind in _JS_TEST_KINDS.items():
-                patterns.append((kind, re.compile(
-                    rf"(?<![\w$.]){name}\s*\.\s*{member}(?:\s*\.\s*only)?\s*\(")))
-    return patterns
+                add(kind, rf"{name}\s*\.\s*{member}")
+    return out
+
+
+def _js_local_test_names(raw: str) -> set[str]:
+    return {local for _, _, local in _js_bindings(raw, lambda s: s == "node:test")}
+
+
+_JS_LOCAL_ASSERT_RE = re.compile(
+    r"\b(?:const|let|var|function|class)\s+assert\b|(?<![\w$.])assert\s*=(?![=>])"
+)
 
 
 def _js_assert_re(raw: str) -> re.Pattern[str]:
-    owners, direct = {"assert"}, set()
+    owners, direct, bound = {"assert"}, set(), set()
     for form, imported, local in _js_bindings(raw, lambda s: s in _JS_ASSERT_MODULES):
         (direct if form == "named" else owners).add(local)
-    owner_alt = "|".join(re.escape(o) for o in sorted(owners))
-    parts = [rf"(?<![\w$.])(?:{owner_alt})(?:\s*\.\s*[\w$]+)*\s*\("]
+        bound.add(local)
+    # Un "assert" declarado en el propio fichero y no ligado a node:assert es un
+    # doble inofensivo, no una aserción.
+    if "assert" not in bound and _JS_LOCAL_ASSERT_RE.search(raw):
+        owners.discard("assert")
+    parts = []
+    if owners:
+        owner_alt = "|".join(re.escape(o) for o in sorted(owners))
+        parts.append(rf"(?<![\w$.])(?:{owner_alt})(?:\s*\.\s*[\w$]+)*\s*\(")
     if direct:
         parts.append(rf"(?<![\w$.])(?:{'|'.join(re.escape(d) for d in sorted(direct))})\s*\(")
     # t.assert.equal(...) del contexto de node:test.
@@ -351,24 +370,30 @@ def _js_assert_re(raw: str) -> re.Pattern[str]:
     return re.compile("|".join(parts))
 
 
-def _mask_swallowed_try(text: str, assert_re: re.Pattern[str]) -> str:
-    """Borra el cuerpo de los try cuyo catch traga el fallo (ni relanza ni
-    aserta): una aserción ahí dentro jamás llega al código de salida."""
-    chars = list(text)
-    for m in re.finditer(r"(?<![\w$.])try\s*\{", text):
-        t_open = m.end() - 1
-        t_close = _matching(text, t_open, "{", "}")
-        c = re.compile(r"\s*catch\s*(?:\([^)]*\))?\s*\{").match(text, t_close + 1)
-        if c is None:
-            continue
-        c_open = c.end() - 1
-        c_body = text[c_open + 1 : _matching(text, c_open, "{", "}")]
-        if re.search(r"(?<![\w$.])throw\b", c_body) or assert_re.search(c_body):
-            continue
-        for k in range(t_open + 1, min(t_close, len(chars))):
-            if chars[k] != "\n":
-                chars[k] = " "
-    return "".join(chars)
+_JS_VOID_PROCESS_RE = re.compile(
+    r"(?<![\w$.])process\s*\.\s*(?:exit|reallyExit|abort|kill|exitCode\s*=(?!=)"
+    r"|setUncaughtExceptionCaptureCallback)\b"
+)
+_JS_VOID_EVENT_RE = re.compile(
+    r"process\s*\.\s*(?:on|once|addListener|prependListener)\s*\(\s*['\"]"
+    r"(?:uncaughtException|uncaughtExceptionMonitor|unhandledRejection|exit|beforeExit)['\"]"
+)
+_JS_ASSERT_MUTATION_RE = re.compile(r"(?<![\w$.])assert\s*(?:\.\s*[\w$]+)+\s*=(?!=)")
+_JS_RETHROW_RE = re.compile(r"(?<![\w$.])throw\b|\.\s*fail\s*\(|\bifError\s*\(")
+_JS_CALLEES = {
+    "then", "setTimeout", "setImmediate", "setInterval", "queueMicrotask", "nextTick",
+    "forEach", "map", "test", "it", "describe", "suite", "before", "after",
+    "beforeEach", "afterEach", "on", "once",
+}
+_JS_FUNC_HEAD_RE = re.compile(
+    rf"(?<![\w$.])function\s+({_JS_IDENT})\s*\([^()]*(?:\([^()]*\)[^()]*)*\)\s*(?=\{{)"
+    rf"|(?<![\w$.])(?:const|let|var)\s+({_JS_IDENT})\s*=\s*(?:async\s+)?"
+    rf"(?:function\b[^(){{}};]*\([^()]*(?:\([^()]*\)[^()]*)*\)\s*(?=\{{)"
+    rf"|(?:\([^()]*(?:\([^()]*\)[^()]*)*\)|{_JS_IDENT})\s*=>\s*)"
+)
+_JS_BODY_FN_RE = re.compile(
+    r"=>\s*(?=\{)|\bfunction\b[^(){};]*\([^()]*(?:\([^()]*\)[^()]*)*\)\s*(?=\{)"
+)
 
 
 def _statement_end(text: str, start: int) -> int:
@@ -388,50 +413,310 @@ def _statement_end(text: str, start: int) -> int:
     return len(text)
 
 
-def _js_regions(clean: str, patterns) -> list[tuple[int, int, str]]:
-    regions = []
-    for kind, pattern in patterns:
-        for m in pattern.finditer(clean):
-            open_idx = m.end() - 1
-            regions.append((m.start(), _matching(clean, open_idx, "(", ")"), kind))
-    return sorted(regions)
+def _blank(chars: list[str], a: int, b: int) -> None:
+    for k in range(max(a, 0), min(b, len(chars))):
+        if chars[k] != "\n":
+            chars[k] = " "
+
+
+def _word_before(text: str, end: int) -> str:
+    m = re.search(r"([\w$]+)\s*$", text[:end])
+    return m.group(1) if m else ""
+
+
+def _open_before(text: str, close_idx: int) -> int:
+    """Índice de la apertura que empareja el cierre en close_idx (o -1)."""
+    depth = 0
+    for k in range(close_idx, -1, -1):
+        if text[k] in ")]}":
+            depth += 1
+        elif text[k] in "([{":
+            depth -= 1
+            if depth == 0:
+                return k
+    return -1
+
+
+def _statement_start(text: str, pos: int) -> int:
+    depth = 0
+    for k in range(pos - 1, -1, -1):
+        ch = text[k]
+        if ch in ")]}":
+            depth += 1
+        elif ch in "([{":
+            if depth == 0:
+                return k + 1
+            depth -= 1
+        elif depth == 0 and ch == ";":
+            return k + 1
+        elif depth == 0 and ch == "\n" and not text[k + 1 :].lstrip(" \t").startswith("."):
+            return k + 1
+    return 0
+
+
+def _enclosing_callee(text: str, pos: int) -> str:
+    depth = 0
+    for k in range(pos - 1, -1, -1):
+        ch = text[k]
+        if ch in ")]}":
+            depth += 1
+        elif ch in "([{":
+            if depth == 0:
+                return _word_before(text, k) if ch == "(" else ""
+            depth -= 1
+    return ""
+
+
+def _unconditional(text: str, k: int, floor: int) -> bool:
+    """True si la sentencia que empieza en k se ejecuta siempre que se llega a su
+    bloque (no es el cuerpo de un if/else/while/for sin llaves)."""
+    j = k - 1
+    while j > floor and text[j].isspace():
+        j -= 1
+    if j <= floor:
+        return True
+    if text[j] in ";{}":
+        return True
+    if text[j] == ")":
+        o = _open_before(text, j)
+        return o > 0 and _word_before(text, o) not in {"if", "while", "for", "with", "switch"}
+    return False
+
+
+def _mask_dead_after_exit(text: str, chars: list[str]) -> None:
+    """Tras un return/throw/process.exit incondicional del propio cuerpo de una
+    función, lo que sigue es inalcanzable."""
+    exit_re = re.compile(r"(?:return|throw)(?![\w$])|process\s*\.\s*exit\s*\(")
+    for m in _JS_BODY_FN_RE.finditer(text):
+        open_idx = m.end()
+        close = _matching(text, open_idx, "{", "}")
+        depth, k = 0, open_idx + 1
+        while k < close:
+            ch = text[k]
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+            elif depth == 0 and ch.isalpha() and not (text[k - 1].isalnum() or text[k - 1] in "_$."):
+                if exit_re.match(text, k) and _unconditional(text, k, open_idx):
+                    _blank(chars, _statement_end(text, k) + 1, close)
+                    break
+            k += 1
+
+
+_DEAD_COND = r"(?:false|0|null|undefined|!\s*true|!\s*1)"
+_TRUE_COND = r"(?:true|1|!\s*false|!\s*0)"
+
+
+def _branch_end(text: str, start: int) -> int:
+    """Fin del bloque o de la sentencia que empieza en start."""
+    while start < len(text) and text[start].isspace():
+        start += 1
+    if start < len(text) and text[start] == "{":
+        return _matching(text, start, "{", "}") + 1
+    return _statement_end(text, start) + 1
+
+
+def _mask_dead_branches(text: str, chars: list[str]) -> None:
+    for m in re.finditer(rf"(?<![\w$.])(?:if|while)\s*\(\s*{_DEAD_COND}\s*\)\s*", text):
+        _blank(chars, m.end(), _branch_end(text, m.end()))
+    for m in re.finditer(rf"(?<![\w$.])if\s*\(\s*{_TRUE_COND}\s*\)\s*", text):
+        end = _branch_end(text, m.end())
+        e = re.compile(r"\s*else\b\s*").match(text, end)
+        if e:
+            _blank(chars, e.end(), _branch_end(text, e.end()))
+
+
+def _swallowing_try_ranges(text: str) -> list[tuple[int, int]]:
+    """Rangos de try (y catch) cuyo fallo no llega al código de salida: catch que
+    no relanza, o finally que sale con return/break/continue."""
+    ranges: list[tuple[int, int]] = []
+    for m in re.finditer(r"(?<![\w$.])try\s*\{", text):
+        t_open = m.end() - 1
+        t_close = _matching(text, t_open, "{", "}")
+        pos, c_range, c_body = t_close + 1, None, ""
+        c = re.compile(r"\s*catch\s*(?:\([^)]*\))?\s*\{").match(text, pos)
+        if c:
+            c_open = c.end() - 1
+            c_close = _matching(text, c_open, "{", "}")
+            c_range, c_body, pos = (c_open + 1, c_close), text[c_open + 1 : c_close], c_close + 1
+        f = re.compile(r"\s*finally\s*\{").match(text, pos)
+        f_body = ""
+        if f:
+            f_open = f.end() - 1
+            f_body = text[f_open + 1 : _matching(text, f_open, "{", "}")]
+        if re.search(r"(?<![\w$.])(?:return|break|continue)(?![\w$])", f_body):
+            ranges.append((t_open + 1, t_close))
+            if c_range:
+                ranges.append(c_range)
+        elif c_range and not _JS_RETHROW_RE.search(c_body):
+            ranges.append((t_open + 1, t_close))
+    return ranges
+
+
+def _swallowing_catch_ranges(text: str) -> list[tuple[int, int]]:
+    """Cadenas de promesas terminadas en .catch(...) que no relanza: se anula el
+    receptor, cuyo fallo queda tragado."""
+    ranges = []
+    for m in re.finditer(r"\.\s*catch\s*\(", text):
+        close = _matching(text, m.end() - 1, "(", ")")
+        arg = text[m.end() : close]
+        if not _JS_RETHROW_RE.search(arg) and "reject" not in arg:
+            ranges.append((_statement_start(text, m.start()), m.start()))
+    return ranges
+
+
+def _function_defs(text: str) -> list[tuple[str, int, int, int]]:
+    """(nombre, posición del nombre, inicio y fin del cuerpo) de las funciones
+    con nombre del fichero."""
+    defs = []
+    for m in _JS_FUNC_HEAD_RE.finditer(text):
+        name = m.group(1) or m.group(2)
+        start = m.end()
+        while start < len(text) and text[start].isspace():
+            start += 1
+        if start < len(text) and text[start] == "{":
+            end = _matching(text, start, "{", "}") + 1
+        else:
+            end = _statement_end(text, start)
+        defs.append((name, m.start(1) if m.group(1) else m.start(2), start, end))
+    return defs
+
+
+def _invoked(text: str, name: str, name_pos: int, callees: set[str]) -> bool:
+    for m in re.finditer(rf"(?<![\w$.]){re.escape(name)}(?![\w$])", text):
+        if m.start() == name_pos:
+            continue
+        after = text[m.end() :]
+        if re.match(r"\s*(?:\(|\.\s*(?:call|apply)\b)", after):
+            return True
+        if _enclosing_callee(text, m.start()) in callees:
+            return True
+    return False
+
+
+def _mask_calls_and_dead_functions(text: str, chars: list[str], callees: set[str]) -> None:
+    defs = _function_defs(text)
+    for name, _, b_start, b_end in defs:
+        body = text[b_start:b_end]
+        if _swallowing_try_ranges(body) or _swallowing_catch_ranges(body):
+            call = re.compile(rf"(?<![\w$.])(?<!function\s){re.escape(name)}\s*\(")
+            for m in call.finditer(text):
+                if not any(d[0] == name and d[1] == m.start() for d in defs):
+                    _blank(chars, m.end(), _matching(text, m.end() - 1, "(", ")"))
+    for name, n_pos, b_start, b_end in defs:
+        if not _invoked(text, name, n_pos, callees):
+            _blank(chars, b_start, b_end)
+
+
+def _mask_unref_timers(text: str, chars: list[str]) -> None:
+    for m in re.finditer(r"(?<![\w$.])(?:setTimeout|setInterval|setImmediate)\s*\(", text):
+        open_idx = m.end() - 1
+        close = _matching(text, open_idx, "(", ")")
+        dead = re.compile(r"\s*\.\s*unref\s*\(").match(text, close + 1) is not None
+        if not dead:
+            v = re.search(rf"({_JS_IDENT})\s*=\s*$", text[_statement_start(text, m.start()) : m.start()])
+            if v:
+                n = re.escape(v.group(1))
+                dead = re.search(
+                    rf"(?<![\w$.]){n}\s*\.\s*unref\s*\(|clear(?:Timeout|Interval|Immediate)\s*\(\s*{n}\s*\)",
+                    text) is not None
+        if dead:
+            _blank(chars, open_idx + 1, close)
+
+
+def _mask_unreachable(plain: str, callees: set[str]) -> str:
+    chars = list(plain)
+    _mask_dead_after_exit(plain, chars)
+    text = "".join(chars)
+    _mask_dead_branches(text, chars)
+    text = "".join(chars)
+    for a, b in _swallowing_try_ranges(text) + _swallowing_catch_ranges(text):
+        _blank(chars, a, b)
+    text = "".join(chars)
+    _mask_unref_timers(text, chars)
+    _mask_calls_and_dead_functions(plain, chars, callees)
+    return "".join(chars)
+
+
+def _function_span(text: str, name: str) -> tuple[int, int] | None:
+    for n, _, b_start, b_end in _function_defs(text):
+        if n == name:
+            return b_start, b_end
+    return None
 
 
 _JS_ASSIGN_RE = re.compile(r"(?<![\w$.])([A-Za-z_$][\w$]*)\s*=(?![=>])")
+_JS_OPT_SKIP_RE = re.compile(r"\b(?:skip|todo)\s*:\s*(?!false\b|0\b|undefined\b|null\b)")
+_JS_CTX_SKIP_RE = re.compile(r"(?<![\w$])[\w$]+\s*\.\s*(?:skip|todo)\s*\(")
+
+
+def _js_regions(clean: str, patterns) -> tuple[list[tuple[int, int, str]], list[tuple[int, int]]]:
+    """Regiones de llamadas registradas (y las funciones referenciadas por nombre)
+    tras descartar las saltadas (skip/todo)."""
+    found, skipped = [], []
+    for kind, call_re, skip_re in patterns:
+        for m in skip_re.finditer(clean):
+            skipped.append((m.start(), _matching(clean, m.end() - 1, "(", ")")))
+        for m in call_re.finditer(clean):
+            end = _matching(clean, m.end() - 1, "(", ")")
+            args = clean[m.end() : end]
+            head = re.split(r"=>|\bfunction\b", args, maxsplit=1)[0]
+            if _JS_OPT_SKIP_RE.search(head) or (kind == "test" and _JS_CTX_SKIP_RE.search(args)):
+                skipped.append((m.start(), end))
+                continue
+            found.append((m.start(), end, kind))
+    regions = sorted(r for r in found if not any(a <= r[0] and r[1] <= b for a, b in skipped))
+    extra = []
+    for s, e, kind in regions:
+        ref = re.search(rf",\s*({_JS_IDENT})\s*$", clean[s:e])
+        span = _function_span(clean, ref.group(1)) if ref and kind == "test" else None
+        if span:
+            extra.append(span)
+    return regions, extra
 
 
 def audit_node(code: str, focal_name: str) -> AuditOutcome:
     """Clasifica un test Node en las cinco categorías de la tesis. Un test que no
-    se registra con node:test, o cuyo fallo no llega al código de salida, cuenta
-    como TEST_FREE aunque el proceso termine con código 0."""
+    se registra con node:test, o cuyo fallo no llega al código de salida
+    (try/catch que traga, return previo, rama muerta, promesa con catch vacío,
+    helper que traga, skip/todo, process.exit...), cuenta como TEST_FREE aunque
+    el proceso termine con código 0. En la duda se resuelve hacia TEST_FREE o
+    ASSERTION_FREE: se prefiere infravalorar REAL."""
     raw = _strip_js(code or "", keep_strings=True)
     residue = _JS_IMPORT_RE.sub(" ", raw)
     residue = _JS_REQUIRE_RE.sub(" ", residue)
     if not re.sub(r"[\s;]", "", residue):
         return AuditOutcome.EMPTY
     plain = _strip_js(code or "")
-    assert_re = _js_assert_re(raw)
-    clean = _mask_swallowed_try(plain, assert_re)
-    regions = _js_regions(clean, _js_registration_res(raw))
-    tests = [(s, e) for s, e, kind in regions if kind == "test"]
-    if not tests:
+    if (_JS_VOID_PROCESS_RE.search(plain) or _JS_VOID_EVENT_RE.search(raw)
+            or _JS_ASSERT_MUTATION_RE.search(plain)):
         return AuditOutcome.TEST_FREE
-    if not any(s < m.start() < e for m in assert_re.finditer(clean) for s, e in tests) and any(
-        s < m.start() < e for m in assert_re.finditer(plain) for s, e in tests
-    ):
-        # Todas las aserciones las traga un try/catch: su fallo no llega al código
-        # de salida, luego el test no se registra a efectos de la tesis.
+    assert_re = _js_assert_re(raw)
+    clean = _mask_unreachable(plain, _JS_CALLEES | _js_local_test_names(raw))
+    regions, extra = _js_regions(clean, _js_registration_res(raw))
+    tests = [(s, e) for s, e, kind in regions if kind == "test"] + extra
+    if not tests:
         return AuditOutcome.TEST_FREE
     outer: list[tuple[int, int]] = []
     for s, e, _ in regions:
         if not outer or s > outer[-1][1]:
             outer.append((s, e))
+    outer += extra
+
+    def inside(pos: int) -> bool:
+        return any(s < pos < e for s, e in tests)
+
     asserts = []
     for m in assert_re.finditer(clean):
-        if any(s < m.start() < e for s, e in tests):
+        if inside(m.start()):
             open_idx = m.end() - 1
             asserts.append((m.start(), clean[open_idx + 1 : _matching(clean, open_idx, "(", ")")]))
     if not asserts:
+        if any(inside(m.start()) for m in assert_re.finditer(plain)):
+            # Todas las aserciones quedan tragadas o inalcanzables: su fallo no
+            # llega al código de salida.
+            return AuditOutcome.TEST_FREE
         return AuditOutcome.ASSERTION_FREE
     focal = re.compile(rf"(?<![\w$.]){re.escape(focal_name)}\s*\(")
     if any(focal.search(args) for _, args in asserts):

@@ -205,3 +205,29 @@ def test_real_timeout_is_infrastructure(tmp_path):
     a = real(tmp_path, timeout_s=2)
     result = a.validate(make_task(), HEAD + "test('s', async () => { await new Promise(r => setTimeout(r, 30000)); });\n")
     assert result.infra_failure and not result.passed
+
+
+@pytest.mark.integration
+@needs_node
+def test_real_swallowed_patterns_exit_zero_yet_never_audit_real(tmp_path):
+    """Cada patrón engaña al runner (código 0, o no se ejecuta) con una aserción falsa;
+    la auditoría jamás debe darlo por REAL."""
+    from tests.test_audit_node import SWALLOWED
+    a = real(tmp_path)
+    leaked = {}
+    for name, code in SWALLOWED.items():
+        if name == "i_process_on_exit":
+            continue  # node ignora process.exitCode = 0 tras un fallo: se anula por cautela
+        result = a.validate(make_task(), code)
+        leaked[name] = (result.passed, result.infra_failure, a.audit(make_task(), code).name)
+    assert all(passed and not infra and audit != "REAL" for passed, infra, audit in leaked.values()), leaked
+
+
+@pytest.mark.integration
+@needs_node
+def test_real_test_passed_by_reference_fails_the_process_and_audits_real(tmp_path):
+    a = real(tmp_path)
+    code = HEAD + "function body() { assert.equal(slugify('A'), 'zzz'); }\ntest('a', body);\n"
+    result = a.validate(make_task(), code)
+    assert not result.passed and not result.infra_failure
+    assert a.audit(make_task(), code) is AuditOutcome.REAL
