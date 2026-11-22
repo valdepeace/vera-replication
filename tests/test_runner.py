@@ -262,3 +262,84 @@ def test_cli_reports_block_aborted_with_nonzero_exit(monkeypatch, capsys):
                  "--skip-infra-failed"])
     assert code == 1
     assert "servidor caído" in capsys.readouterr().err
+
+
+class UnloadingEngine(FakeEngine):
+    """Motor falso con unload; anota en `events` las llamadas en orden."""
+
+    def __init__(self, events, fail_unload=False):
+        super().__init__()
+        self.events = events
+        self.fail_unload = fail_unload
+
+    def chat(self, messages, *, model, options, json_schema):
+        self.events.append(("chat", model))
+        return super().chat(messages, model=model, options=options, json_schema=json_schema)
+
+    def unload(self, model):
+        self.events.append(("unload", model))
+        if self.fail_unload:
+            raise EngineError("connection", "servidor caído")
+
+
+def two_model_configs():
+    configs = expand_block(DETERMINISTIC, TASKS)
+    first = configs[0].model.name
+    split = next(i for i, c in enumerate(configs) if c.model.name != first)
+    return configs[split - 2:split + 2]  # dos del primer modelo y dos del segundo
+
+
+def test_unloads_previous_model_on_change_and_last_at_end(tmp_path):
+    configs = two_model_configs()
+    a, b = configs[0].model.name, configs[-1].model.name
+    events = []
+    engines = {a: UnloadingEngine(events), b: UnloadingEngine(events)}
+    execute_block(configs, engines, {"java": FakeAdapter()}, RunStore(tmp_path / "r"),
+                  sleep=SleepRecorder())
+    assert events == [("chat", a), ("chat", a), ("unload", a),
+                      ("chat", b), ("chat", b), ("unload", b)]
+    assert engines[a].events is engines[b].events
+
+
+def test_unload_goes_to_the_engine_of_the_previous_model(tmp_path):
+    configs = two_model_configs()
+    a, b = configs[0].model.name, configs[-1].model.name
+    ev_a, ev_b = [], []
+    engines = {a: UnloadingEngine(ev_a), b: UnloadingEngine(ev_b)}
+    execute_block(configs, engines, {"java": FakeAdapter()}, RunStore(tmp_path / "r"),
+                  sleep=SleepRecorder())
+    assert ("unload", a) in ev_a and ("unload", a) not in ev_b
+    assert ("unload", b) in ev_b and ("unload", b) not in ev_a
+
+
+def test_resumed_runs_do_not_trigger_unload(tmp_path):
+    configs = det_configs(2)
+    store = RunStore(tmp_path / "r")
+    execute_block(configs, engines_for(configs, FakeEngine()), {"java": FakeAdapter()}, store)
+    events = []
+    execute_block(configs, engines_for(configs, UnloadingEngine(events)),
+                  {"java": FakeAdapter()}, store)
+    assert events == []
+
+
+def test_failing_unload_is_logged_and_block_continues(tmp_path, capsys):
+    configs = two_model_configs()
+    events = []
+    engine = UnloadingEngine(events, fail_unload=True)
+    summary = execute_block(configs, engines_for(configs, engine), {"java": FakeAdapter()},
+                            RunStore(tmp_path / "r"), sleep=SleepRecorder())
+    assert (summary.executed, summary.valid) == (4, 4)
+    assert [e for e in events if e[0] == "unload"] == [
+        ("unload", configs[0].model.name), ("unload", configs[-1].model.name)]
+    err = capsys.readouterr().err
+    assert "[unload]" in err and "servidor caído" in err
+
+
+def test_aborted_block_still_unloads_current_model(tmp_path):
+    configs = det_configs(6)
+    events = []
+    engine = UnloadingEngine(events)
+    engine.script = [EngineError("connection")] * 100
+    with pytest.raises(BlockAborted):
+        run(configs, engine, RunStore(tmp_path / "r"))
+    assert events[-1] == ("unload", configs[0].model.name)

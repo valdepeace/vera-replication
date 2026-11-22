@@ -39,6 +39,21 @@ class OllamaEngine:
         }
         if json_schema is not None:
             payload["format"] = json_schema
+        body = self._post_chat(payload, model)
+        return ChatResult(
+            text=(body.get("message") or {}).get("content", ""),
+            prompt_tokens=int(body.get("prompt_eval_count", 0)),
+            completion_tokens=int(body.get("eval_count", 0)),
+            load_seconds=body.get("load_duration", 0) / _NS,
+            total_seconds=body.get("total_duration", 0) / _NS,
+            truncated=body.get("done_reason") == "length",
+        )
+
+    def unload(self, model: str) -> None:
+        """Descarga el modelo de la memoria del servidor (keep_alive 0) sin esperar a que caduque."""
+        self._post_chat({"model": model, "messages": [], "keep_alive": 0}, model)
+
+    def _post_chat(self, payload: dict, model: str) -> dict:
         req = urllib.request.Request(
             self.base_url + "/api/chat",
             data=json.dumps(payload).encode("utf-8"),
@@ -62,11 +77,4 @@ class OllamaEngine:
             raise EngineError("connection", str(exc)) from exc
         except ValueError as exc:
             raise EngineError("server", f"respuesta no válida: {exc}") from exc
-        return ChatResult(
-            text=(body.get("message") or {}).get("content", ""),
-            prompt_tokens=int(body.get("prompt_eval_count", 0)),
-            completion_tokens=int(body.get("eval_count", 0)),
-            load_seconds=body.get("load_duration", 0) / _NS,
-            total_seconds=body.get("total_duration", 0) / _NS,
-            truncated=body.get("done_reason") == "length",
-        )
+        return body

@@ -86,6 +86,21 @@ def test_connection_refused_raises_connection_error():
     assert e.value.kind == "connection"
 
 
+def test_unload_posts_empty_chat_with_keep_alive_zero(server):
+    server["reply"] = {"model": "m", "done": True, "done_reason": "unload"}
+    assert OllamaEngine(server["url"]).unload("m") is None
+    path, body = server["received"]
+    assert path == "/api/chat"
+    assert body == {"model": "m", "messages": [], "keep_alive": 0}
+
+
+def test_unload_http_500_raises_server_error(server):
+    server["status"] = 500
+    with pytest.raises(EngineError) as e:
+        OllamaEngine(server["url"]).unload("m")
+    assert e.value.kind == "server"
+
+
 def test_404_model_not_found_raises_model_missing(server):
     server["status"] = 404
     server["reply"] = {"error": "model 'm' not found"}

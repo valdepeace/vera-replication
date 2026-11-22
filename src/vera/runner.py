@@ -72,35 +72,56 @@ def _is_done(store: RunStore, run_id: str, skip_infra_failed: bool) -> bool:
     return skip_infra_failed or store.load(run_id).stop_reason != "infra_failure"
 
 
+def _unload(engine: ChatEngine, model: str) -> None:
+    """Libera la memoria del modelo si el motor sabe hacerlo; un fallo no detiene el bloque."""
+    unload = getattr(engine, "unload", None)
+    if unload is None:
+        return
+    try:
+        unload(model)
+    except Exception as exc:  # noqa: BLE001 - descargar es una cortesía con la VRAM, no un requisito
+        print(f"[unload] {model}: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+
+
 def execute_block(configs: list[RunConfig], engines: dict[str, ChatEngine],
                   adapters: dict[str, LanguageAdapter], store: RunStore, *,
                   retries: int = 2, skip_infra_failed: bool = False,
                   sleep: Callable[[float], None] = time.sleep,
                   on_record: Callable[[int, int, RunRecord], None] | None = None) -> BlockSummary:
     """Ejecuta lo pendiente; los fallos de infraestructura guardados se repiten salvo
-    skip_infra_failed. MAX_CONSECUTIVE_INFRA fallos seguidos abortan con BlockAborted."""
+    skip_infra_failed. MAX_CONSECUTIVE_INFRA fallos seguidos abortan con BlockAborted.
+    Al cambiar de modelo, y al terminar, se descarga el anterior para no compartir la VRAM."""
     summary = BlockSummary(total=len(configs))
     streak = 0
-    for index, config in enumerate(configs):
-        if _is_done(store, config.run_id, skip_infra_failed):
-            summary.resumed += 1
-            continue
-        record = _run_with_retries(config, engines[config.model.name],
-                                   adapters[config.task.language], retries, sleep)
-        store.save(record)
-        summary.executed += 1
-        summary.accepted += record.accepted
-        summary.valid += record.valid
-        summary.invalid += not record.valid
-        if on_record is not None:
-            on_record(index, len(configs), record)
-        streak = streak + 1 if record.stop_reason == "infra_failure" else 0
-        if streak >= MAX_CONSECUTIVE_INFRA:
-            raise BlockAborted(
-                f"bloque abortado: {streak} ejecuciones seguidas con fallo de infraestructura "
-                f"(última: {config.run_id}: {record.infra_error}); revise el servidor y reanude",
-                summary,
-            )
+    loaded: tuple[str, ChatEngine] | None = None  # último modelo usado y su motor
+    try:
+        for index, config in enumerate(configs):
+            if _is_done(store, config.run_id, skip_infra_failed):
+                summary.resumed += 1
+                continue
+            engine = engines[config.model.name]
+            if loaded is not None and loaded[0] != config.model.name:
+                _unload(loaded[1], loaded[0])
+            loaded = (config.model.name, engine)
+            record = _run_with_retries(config, engine, adapters[config.task.language],
+                                       retries, sleep)
+            store.save(record)
+            summary.executed += 1
+            summary.accepted += record.accepted
+            summary.valid += record.valid
+            summary.invalid += not record.valid
+            if on_record is not None:
+                on_record(index, len(configs), record)
+            streak = streak + 1 if record.stop_reason == "infra_failure" else 0
+            if streak >= MAX_CONSECUTIVE_INFRA:
+                raise BlockAborted(
+                    f"bloque abortado: {streak} ejecuciones seguidas con fallo de infraestructura "
+                    f"(última: {config.run_id}: {record.infra_error}); revise el servidor y reanude",
+                    summary,
+                )
+    finally:
+        if loaded is not None:
+            _unload(loaded[1], loaded[0])
     return summary
 
 
