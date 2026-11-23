@@ -7,3 +7,4 @@ __pycache__/
 results/runs/**/workspace/
 results/runs/**/records/
 results/fase1/
+results/vera01-*/

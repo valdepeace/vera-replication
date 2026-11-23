@@ -63,11 +63,8 @@ Este hallazgo endurece el protocolo: además de comprobar ejecución, aserciones
 
 ## Artefactos
 
-- [Registro por candidato](../results/vera01-2026-11-21T14-05-08.057Z-aBzg7a/records.jsonl): prompts, respuestas, comandos, resultados y trazas.
-- [Resumen de ejecución](../results/vera01-2026-11-21T14-05-08.057Z-aBzg7a/summary.json).
-- [Auditoría de los resultados aceptados](../results/vera01-2026-11-21T14-05-08.057Z-aBzg7a/audit.jsonl).
-- Segunda corrida: [registro](../results/vera01-2026-11-21T16-15-12.346Z-BLv52y/records.jsonl), [resumen](../results/vera01-2026-11-21T16-15-12.346Z-BLv52y/summary.json) y [auditoría](../results/vera01-2026-11-21T16-15-12.346Z-BLv52y/audit.jsonl).
-- Métodos reales: [registro](../results/vera01-real-2026-11-21T17-21-17.724Z-E9Hig2/records.jsonl), [resumen](../results/vera01-real-2026-11-21T17-21-17.724Z-E9Hig2/summary.json), [auditoría manual](../results/vera01-real-2026-11-21T17-21-17.724Z-E9Hig2/audit.jsonl) y [manifiesto de fuentes](../benchmarks/vera01/real/manifest.json).
+- Los registros, resúmenes y auditorías de las corridas piloto del 21 de noviembre de 2026 (`records.jsonl`, `summary.json`, `audit.jsonl`) se conservan únicamente en local y no se publican en este repositorio; el [registro de corridas](../results/README.md) deja constancia de cada una.
+- Métodos reales: el [manifiesto de fuentes](../benchmarks/vera01/real/manifest.json) permanece versionado.
 - Los tests generados y la salida cruda de cada runner están en los subdirectorios del [registro de corridas](../results/README.md).
 
 
