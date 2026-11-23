@@ -43,7 +43,18 @@ STATISTICAL = BlockSpec(
     task_filter=lambda tasks: list(tasks),
 )
 
-BLOCKS: dict[str, BlockSpec] = {b.name: b for b in (DETERMINISTIC, STATISTICAL)}
+# Ampliación del bloque estadístico con el mismo prompt (vera01-p1), parámetros y tareas: Ornith 1.5 9B.
+# Los dos MoE de 30B (qwen3-coder:30b y qwen3:30b-a3b) no superaron la puerta de velocidad
+# (18,7 y 19,6 tok/s frente a un mínimo de 20) y quedan fuera, conforme a lo acordado.
+EXTENSION = BlockSpec(
+    name="ampliacion",
+    models=["ornith-1.5:9b"],
+    temperature=0.7,
+    repetitions=15,
+    task_filter=lambda tasks: list(tasks),
+)
+
+BLOCKS: dict[str, BlockSpec] = {b.name: b for b in (DETERMINISTIC, STATISTICAL, EXTENSION)}
 
 
 def load_tasks(language: str) -> list[Task]:

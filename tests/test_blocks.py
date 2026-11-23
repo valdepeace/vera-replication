@@ -1,5 +1,6 @@
 from vera.blocks import (
     DETERMINISTIC,
+    EXTENSION,
     STATISTICAL,
     expand_block,
     load_tasks,
@@ -24,6 +25,15 @@ def test_models_registry_ports():
     assert MODELS["gemma4:e4b"].base_url == "http://127.0.0.1:11435"
     assert MODELS["qwen2.5-coder:7b"].base_url == "http://127.0.0.1:11434"
     assert MODELS["qwen3:8b"].base_url == "http://127.0.0.1:11434"
+
+
+def test_extension_expands_to_600_runs_with_same_prompt_and_params():
+    configs = expand_block(EXTENSION, load_tasks("java"))
+    assert len(configs) == 1 * 15 * 20 * 2
+    assert {c.model.name for c in configs} == {"ornith-1.5:9b"}
+    assert all(c.temperature == STATISTICAL.temperature for c in configs)
+    assert all(c.prompt_version == PROMPT_VERSION for c in configs)
+    assert MODELS["ornith-1.5:9b"].base_url == "http://127.0.0.1:11431"
 
 
 def test_deterministic_expands_to_80_runs():
