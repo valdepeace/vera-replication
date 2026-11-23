@@ -94,7 +94,7 @@ Ejecutado el 22 de noviembre de 2026 con `python -m vera run --block determinist
 
 ### Entorno
 
-Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.md); medición de motores y puerta de calidad con `num_ctx` 8192 en [medicion-8192.md](medicion-8192.md). Motor: Ollama 0.40.13 (puertos 11434 y 11435); versión del prompt: `vera01-p1` (`PROMPT_VERSION`).
+Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.md); medición de motores y puerta de calidad con `num_ctx` 8192 en [medicion-8192.md](medicion-8192.md). Motor: Ollama 0.40.13 (puertos 11434 y 11435; 11431 para la ampliación); versión del prompt: `vera01-p1` (`PROMPT_VERSION`).
 
 ### Desviaciones respecto de la tesis
 
@@ -108,6 +108,26 @@ Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.m
 | Veredicto | Validación con Maven en el árbol del proyecto | Maven en modo desconectado, limitado al test generado; sin suite completa | Un test que rompa otros módulos no se detecta |
 | Javadoc | No consta que se omita | El `focal_source` se entrega sin Javadoc | Menos pistas sobre el oráculo que en un uso real |
 | Python y Node | No existen en la tesis | Proyectos propios ([proyectos-python-node.md](proyectos-python-node.md)) | Sin cifra de la tesis con la que comparar |
+| Importación de la clase bajo prueba | No consta | El prompt da el nombre de la clase sin su paquete (véase más abajo) | Los fallos de compilación por importación dominan el primer intento |
+
+### Limitación del prompt: el paquete de la clase bajo prueba
+
+Cabe señalar que el prompt `vera01-p1` exige `package org.generated;` e indica la clase bajo prueba únicamente por su nombre (por ejemplo `BooleanUtils`), sin su paquete `org.apache.commons.lang3`. El modelo ha de deducirlo por sí mismo, de suerte que la tasa mide, en parte, si conoce Commons Lang y no solo su destreza para escribir tests. Se detectó al examinar el 0 % de baseline de `qwen3:8b`.
+
+Primer intento de la condición baseline, 300 ejecuciones por modelo (bloque estadístico):
+
+| Modelo | No compilan | Detalle |
+|---|---:|---|
+| `qwen3:8b` | 299 | 298 importan `org.generated.X`, clase inexistente |
+| `llama3.1:8b` | 259 | 50 importan `org.generated.X`; 43 inventan un paquete |
+| `qwen2.5-coder:7b` | 192 | 11 importan `org.generated.X` |
+| `gemma4:e4b` | 279 | 242 con `cannot find symbol`; ninguna con importación explícita de la clase |
+
+Decisión: los resultados de `vera01-p1` se conservan sin alteración y se informan con esta salvedad; no se corrigen ni se repiten. Una versión que indicase el paquete sería un prompt distinto (`vera01-p2`) y exigiría un bloque nuevo con todos los modelos, nunca solo con uno, pues el informe rechaza mezclar versiones. Las diferencias absolutas con la tesis, y en particular el hundimiento de `qwen3:8b` en baseline, deben leerse con esta limitación presente.
+
+### Ampliación con Ornith 1.5 9B
+
+Con el mismo prompt, parámetros y tareas se añade el bloque `ampliacion` (600 ejecuciones): Ornith 1.5 9B, conversión GGUF Q4_K_M de bartowski, servida en el puerto 11431 desde `E:\ollama-vera\models` (Windows reservó el rango 11435-11534 tras el reinicio del 23 de noviembre de 2026). Superó la puerta de velocidad (29,5 tok/s; mínimo 20), aunque un 14 % del modelo reside en CPU. `qwen3-coder:30b` (18,7 tok/s) y `qwen3:30b-a3b` (19,6 tok/s) no la superaron y quedaron fuera por lo acordado. El informe mezcla ambos bloques con `python -m vera report --block estadistico --with ampliacion --language java`, lo cual es lícito porque comparten prompt, parámetros y tareas.
 
 ### Resultados por lenguaje y modelo
 

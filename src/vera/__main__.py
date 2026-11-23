@@ -23,20 +23,24 @@ def _report_progress(index: int, total: int, record: RunRecord) -> None:
           f" valid={record.valid}", file=sys.stderr, flush=True)
 
 
-def _report(block_name: str, language: str, partial: bool = False) -> int:
+def _report(block_name: str, language: str, partial: bool = False,
+            include: tuple[str, ...] = ()) -> int:
     from vera.analysis.report import IncompleteBlockError, planned_run_ids, render_markdown
     from vera.runner import block_dir
     from vera.store import RunStore
 
-    records_dir = block_dir(REPO_ROOT / "results", BLOCKS[block_name], language) / "records"
-    records = list(RunStore(records_dir).load_all())
-    tmp_files = len(list(records_dir.glob("*.tmp"))) if records_dir.is_dir() else 0
+    records, tmp_files, planned = [], 0, set()
+    for name in (block_name, *include):
+        records_dir = block_dir(REPO_ROOT / "results", BLOCKS[name], language) / "records"
+        records += list(RunStore(records_dir).load_all())
+        tmp_files += len(list(records_dir.glob("*.tmp"))) if records_dir.is_dir() else 0
+        planned |= planned_run_ids(name, language)
     invalid = sum(not r.valid for r in records)
     print(f"ejecuciones={len(records)} invalidas={invalid} tmp_sin_cerrar={tmp_files}")
     print()
     try:
         print(render_markdown(records, block=block_name, partial_ok=partial,
-                              planned_ids=planned_run_ids(block_name, language)))
+                              planned_ids=planned, include=include))
     except IncompleteBlockError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -56,12 +60,14 @@ def main(argv: list[str] | None = None) -> int:
     report = sub.add_parser("report", help="resume en Markdown las ejecuciones de un bloque")
     report.add_argument("--block", choices=sorted(BLOCKS), required=True)
     report.add_argument("--language", choices=("java", "python", "node"), required=True)
+    report.add_argument("--with", dest="extra", nargs="+", choices=sorted(BLOCKS), default=[],
+                        help="suma al informe los registros de otros bloques (la ampliación)")
     report.add_argument("--partial", action="store_true",
                         help="presenta un bloque incompleto marcado como PARCIAL (no es una métrica)")
     args = parser.parse_args(argv)
 
     if args.command == "report":
-        return _report(args.block, args.language, args.partial)
+        return _report(args.block, args.language, args.partial, tuple(args.extra))
     if args.language not in ADAPTER_LANGUAGES:
         run.error(f"el lenguaje '{args.language}' todavia no tiene adaptador; "
                   f"disponibles: {', '.join(ADAPTER_LANGUAGES)}")

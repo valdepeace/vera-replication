@@ -50,6 +50,39 @@ def test_report_flags_invalid_runs_count(make_record):
     assert "Ejecuciones inválidas (excluidas de toda tasa): 2" in md
 
 
+def test_report_merges_explicitly_included_block(make_record):
+    base = sample(make_record)
+    ext = [make_record(model="ornith-1.5:9b", condition=c, block="ampliacion", task_id=f"t{t}")
+           for t in range(2) for c in (B, RP)]
+    md = render_markdown(base + ext, block="estadistico", include=("ampliacion",),
+                         planned_ids=ids(base) | ids(ext))
+    assert "# Informe del bloque estadistico + ampliacion" in md
+    assert len(rows(md, "ornith-1.5:9b")) == 4 and rows(md, "llama3.1:8b")
+    assert any("no verificable" in row for row in rows(md, "ornith-1.5:9b"))
+    assert "ornith-1.5:9b" not in render_markdown(base + ext, block="estadistico",
+                                                  planned_ids=ids(base))
+
+
+def test_merged_report_requires_complete_plan_and_single_prompt(make_record):
+    from dataclasses import replace
+
+    base = sample(make_record)
+    ext = [make_record(model="ornith-1.5:9b", block="ampliacion", task_id="t0")]
+    with pytest.raises(IncompleteBlockError, match="planificadas"):
+        render_markdown(base + ext, block="estadistico", include=("ampliacion",),
+                        planned_ids=ids(base) | ids(ext) | {"ampliacion/x/t9/baseline/r1"})
+    other = replace(ext[0], config=replace(ext[0].config, prompt_version="otro"))
+    with pytest.raises(IncompleteBlockError, match="mezcla versiones del prompt"):
+        render_markdown(base + [other], block="estadistico", include=("ampliacion",),
+                        planned_ids=ids(base) | ids([other]))
+
+
+def test_java_report_documents_prompt_package_limit(make_record):
+    records = sample(make_record)
+    md = render_markdown(records, block="estadistico", planned_ids=ids(records))
+    assert "Prompt sin el paquete de la clase (Java)" in md
+
+
 def test_report_ignores_other_blocks(make_record):
     base = sample(make_record)
     records = base + [make_record(model="intruso", block="extension")]

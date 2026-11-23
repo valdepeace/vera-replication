@@ -130,6 +130,15 @@ def _limits_section(languages) -> list[str]:
     if "java" in languages:
         lines.append("  - Java: la auditoría es estructural; una aserción puede ser vacua "
                      "(no mide el poder de detección).")
+        lines.append("- **Prompt sin el paquete de la clase (Java).** El prompt reconstruido exige "
+                     "`package org.generated;` e indica la clase bajo prueba solo por su nombre "
+                     "(por ejemplo `BooleanUtils`), sin su paquete `org.apache.commons.lang3`. El "
+                     "modelo debe deducirlo por sí mismo: buena parte de los fallos del primer "
+                     "intento son errores de compilación por una importación equivocada y no de "
+                     "calidad de los tests, de modo que la tasa mide también si el modelo conoce "
+                     "Commons Lang. Afecta de forma muy desigual a los modelos (véase "
+                     "docs/findings.md) y las tasas absolutas, en particular el 0 % de baseline de "
+                     "qwen3:8b, deben leerse con esta salvedad.")
     lines += ["- **No independencia.** Los intervalos de Newcombe tratan las ejecuciones como "
               "independientes, pero comparten método focal (mismos métodos en cada celda y "
               "repeticiones del mismo método), modelo y comando de validación, y las "
@@ -181,16 +190,18 @@ def _thesis_section(block: str, records) -> list[str]:
     return lines + [""]
 
 
-def render_markdown(records, *, block: str, planned_ids, partial_ok: bool = False) -> str:
+def render_markdown(records, *, block: str, planned_ids, partial_ok: bool = False,
+                    include: tuple[str, ...] = ()) -> str:
     """Informe de un bloque. `planned_ids` (los run_id planificados) es obligatorio: sin plan no
     hay forma de saber si el bloque está completo. Se niega a presentar tasas de un bloque con
     menos ejecuciones que las planificadas, salvo `partial_ok`, que las marca con un aviso
-    explícito de que no son una métrica. Las versiones del prompt mezcladas se rechazan siempre."""
+    explícito de que no son una métrica. Las versiones del prompt mezcladas se rechazan siempre.
+    `include` suma al informe, de forma explícita, los registros de otros bloques (la ampliación);
+    la exigencia de un único prompt y de un plan completo se aplica a la unión."""
     if planned_ids is None:
         raise ValueError("planned_ids es obligatorio: sin plan no se puede comprobar la completitud")
-    if block in REPLICA_BLOCKS:
-        records = replica_records(records)
-    records = [r for r in records if r.config.block == block]
+    blocks = (block, *include)
+    records = [r for r in records if r.config.block in blocks]
     versions = {r.config.prompt_version for r in records}
     if len(versions) > 1:
         raise IncompleteBlockError(
@@ -202,7 +213,7 @@ def render_markdown(records, *, block: str, planned_ids, partial_ok: bool = Fals
         raise IncompleteBlockError(
             f"el bloque {block} tiene {len(planned & present)} de {len(planned)} ejecuciones "
             f"planificadas: corrida parcial o interrumpida; no se presentan tasas")
-    title = f"# Informe del bloque {block}"
+    title = f"# Informe del bloque {' + '.join(blocks)}"
     lines = [title + (" (PARCIAL)" if missing else ""), ""]
     if missing:
         lines += [f"> AVISO: corrida PARCIAL ({len(planned & present)} de {len(planned)} "
