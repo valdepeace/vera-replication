@@ -7,15 +7,15 @@
 /* Concepto: informe de laboratorio. Una columna de lectura, cuatro figuras, cada una con una sola afirmación. */
 :root{
   --bg:#f2f2ef; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#7a7974; --line:#dcdbd5; --grid:#e8e7e2;
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --loop:#6250d6;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --loop:#6250d6;
   --f-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; --f-head:'Space Grotesk','Inter',system-ui,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#121211; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#97968d; --line:#35342f; --grid:#2a2a27;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --loop:#9085e9; color-scheme:dark}}
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --loop:#9085e9; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#121211; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#97968d; --line:#35342f; --grid:#2a2a27;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --loop:#9085e9; color-scheme:dark}
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --loop:#9085e9; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
   padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -61,11 +61,11 @@ footer{font-size:12px;color:var(--muted)}
 <main>
 <header>
   <p class="eyebrow">VERA-01 · bloque estadístico · Java</p>
-  <h1>Reparar con el diagnóstico mejora a los cuatro modelos, pero no como decía la tesis</h1>
-  <p>Primera comparativa de la réplica, con las 2 400 ejecuciones de la noche del 22 al 23 de noviembre de 2026. Cada modelo genera tests unitarios para métodos de Apache Commons Lang; en la condición <em>repair</em> puede corregirse hasta tres veces a partir del error que devuelve la validación.</p>
+  <h1>Reparar con el diagnóstico mejora a los cinco modelos, pero no como decía la tesis</h1>
+  <p>Primera comparativa de la réplica, con 3 000 ejecuciones: 2 400 de la noche del 22 al 23 de noviembre de 2026 y 600 de Ornith 1.5 9B, añadidas después con el mismo prompt. Cada modelo genera tests unitarios para métodos de Apache Commons Lang; en la condición <em>repair</em> puede corregirse hasta tres veces a partir del error que devuelve la validación.</p>
   <dl class="facts">
-    <div><dt>Ejecuciones válidas</dt><dd>2 400 / 2 400</dd></div>
-    <div><dt>Modelos</dt><dd>4</dd></div>
+    <div><dt>Ejecuciones válidas</dt><dd>3 000 / 3 000</dd></div>
+    <div><dt>Modelos</dt><dd>5</dd></div>
     <div><dt>Métodos × repeticiones</dt><dd>20 × 15</dd></div>
     <div><dt>Temperatura</dt><dd>0,7</dd></div>
     <div><dt>Contexto</dt><dd>8 192</dd></div>
@@ -85,10 +85,10 @@ footer{font-size:12px;color:var(--muted)}
 
 <section aria-labelledby="h-comp">
   <h2 id="h-comp">Tasa de éxito: baseline frente a repair</h2>
-  <p class="lede">En los cuatro modelos repair sube la tasa, y el intervalo de la mejora no toca el cero. La diferencia entre modelos es enorme: de +12 puntos en gemma4 a +75 en qwen3.</p>
+  <p class="lede">En los cinco modelos repair sube la tasa, y el intervalo de la mejora no toca el cero. La diferencia entre modelos es enorme: de +12 puntos en gemma4 a +75 en qwen3.</p>
   <figure>
     <div class="legend"><span><i class="dot"></i>baseline</span><span><i class="dot fill"></i>repair</span><span>300 ejecuciones por punto</span></div>
-    <div class="scroll"><svg id="c1" viewBox="0 0 760 310" role="img" aria-label="Tasa de éxito REAL por modelo en baseline y repair. qwen3:8b pasa de 0 % a 74,7 %, qwen2.5-coder de 32,3 % a 58,7 %, llama3.1 de 8,3 % a 53,3 % y gemma4 de 6,0 % a 18,3 %."></svg></div>
+    <div class="scroll"><svg id="c1" viewBox="0 0 760 370" role="img" aria-label="Tasa de éxito REAL por modelo en baseline y repair. qwen3:8b pasa de 0 % a 74,7 %, ornith de 25,0 % a 64,0 %, qwen2.5-coder de 32,3 % a 58,7 %, llama3.1 de 8,3 % a 53,3 % y gemma4 de 6,0 % a 18,3 %."></svg></div>
     <figcaption>Tasa de éxito REAL. A la derecha, la mejora en puntos porcentuales con su intervalo de confianza del 95 % (Newcombe).</figcaption>
   </figure>
 </section>
@@ -99,7 +99,7 @@ footer{font-size:12px;color:var(--muted)}
   <figure>
     <div class="legend" id="leg2"></div>
     <div class="scroll"><svg id="c2" viewBox="0 0 760 350" role="img" aria-label="Porcentaje acumulado de ejecuciones aceptadas en la condición repair según el intento. qwen3:8b pasa de 0,3 % en el primer intento a 58,3 % tras la primera reparación y 74,7 % al final."></svg></div>
-    <figcaption>Ejecuciones de la condición <em>repair</em> aceptadas como máximo en cada intento, sobre 300. qwen3:8b casi nunca acierta a la primera: su 0 % en baseline se debe a eso.</figcaption>
+    <figcaption>Ejecuciones de la condición <em>repair</em> aceptadas como máximo en cada intento, sobre 300. qwen3:8b casi nunca acierta a la primera: su 0 % en baseline se debe a eso. En Ornith, 9 de las 201 aceptadas no superan la auditoría REAL.</figcaption>
   </figure>
 </section>
 
@@ -108,8 +108,8 @@ footer{font-size:12px;color:var(--muted)}
   <p class="lede">Repair mejora siempre, como en la tesis, pero el tamaño de la mejora y el orden de los modelos cambian por completo. Se comparan las cifras sustantivas de Java.</p>
   <figure>
     <div class="legend"><span><i class="dot"></i>tesis</span><span><i class="dot fill"></i>réplica, con IC 95 %</span></div>
-    <div class="scroll"><svg id="c3" viewBox="0 0 760 310" role="img" aria-label="Mejora de repair sobre baseline en puntos porcentuales, tesis frente a réplica. qwen3:8b +9,3 en la tesis y +74,7 en la réplica; llama3.1 +4,6 y +45,0; qwen2.5-coder +20,0 y +26,4; gemma4 +34,0 y +12,3."></svg></div>
-    <figcaption>Mejora de repair sobre baseline, en puntos porcentuales. gemma4 es el que más mejora en la tesis y el que menos en la réplica; qwen3 y llama3.1 hacen lo contrario.</figcaption>
+    <div class="scroll"><svg id="c3" viewBox="0 0 760 370" role="img" aria-label="Mejora de repair sobre baseline en puntos porcentuales, tesis frente a réplica. qwen3:8b +9,3 en la tesis y +74,7 en la réplica; llama3.1 +4,6 y +45,0; qwen2.5-coder +20,0 y +26,4; gemma4 +34,0 y +12,3; ornith +39,0 en la réplica y sin cifra en la tesis."></svg></div>
+    <figcaption>Mejora de repair sobre baseline, en puntos porcentuales. gemma4 es el que más mejora en la tesis y el que menos en la réplica; qwen3 y llama3.1 hacen lo contrario. Ornith no figura en la tesis.</figcaption>
     <details>
       <summary>Ver los datos en tabla</summary>
       <div class="scroll"><table id="tbl"></table></div>
@@ -123,10 +123,10 @@ footer{font-size:12px;color:var(--muted)}
     <li><b>El 0 % de qwen3 en baseline pide una revisión.</b> Falla casi siempre el primer intento (1 de 300 en repair) y se arregla en el segundo. Parece un fallo sistemático de la primera respuesta, no falta de capacidad, y conviene mirar sus diagnósticos antes de interpretarlo.</li>
     <li><b>REAL es una auditoría estática.</b> Comprueba que el test tiene <code>@Test</code> y aserciones y llama al método focal. No ejecuta mutantes, así que una aserción vacua puede contar como REAL.</li>
     <li><b>Los intervalos son optimistas.</b> Tratan las ejecuciones como independientes, pero comparten método focal, modelo y comando de validación.</li>
-    <li><b>Una máquina, un contexto.</b> Un solo equipo, <code>num_ctx</code> 8 192, prompts reconstruidos de la tesis, y dos instancias de Ollama (puertos 11434 y 11435) repartidas entre los modelos.</li>
+    <li><b>Una máquina, un contexto.</b> Un solo equipo, <code>num_ctx</code> 8 192, prompts reconstruidos de la tesis, y tres instancias de Ollama (puertos 11434, 11435 y 11431) repartidas entre los modelos. Ornith 1.5 9B se añadió después con el mismo prompt.</li>
   </ul>
 </section>
-<footer>Datos: results/runs/estadistico/java (2 400 registros), informe generado con <code>python -m vera report --block estadistico --language java</code>. Versión del prompt vera01-p1.</footer>
+<footer>Datos: results/runs/estadistico/java y results/runs/ampliacion/java (3 000 registros), informe generado con <code>python -m vera report --block estadistico --with ampliacion --language java</code>. Versión del prompt vera01-p1.</footer>
 </main>
 <div class="tip" id="tip" role="tooltip"></div>
 
@@ -136,6 +136,7 @@ var NS='http://www.w3.org/2000/svg';
 var fmt=function(n,d){d=d==null?1:d;return n.toFixed(d).replace('.',',')};
 var M=[
  {n:'qwen3:8b',c:'--s3',b:0,r:74.7,g:74.7,lo:69,hi:79,tg:9.3,tb:42.7,tr:52.0,a:[1,175,220,224],tok:4.48},
+ {n:'ornith-1.5:9b',c:'--s5',b:25.0,r:64.0,g:39.0,lo:31,hi:46,tg:null,tb:null,tr:null,a:[74,154,186,201],tok:4.38},
  {n:'qwen2.5-coder:7b',c:'--s2',b:32.3,r:58.7,g:26.4,lo:18,hi:34,tg:20.0,tb:25.0,tr:45.0,a:[87,161,172,176],tok:4.19},
  {n:'llama3.1:8b',c:'--s1',b:8.3,r:53.3,g:45.0,lo:38,hi:51,tg:4.6,tb:17.7,tr:22.3,a:[22,105,144,160],tok:5.49},
  {n:'gemma4:e4b',c:'--s4',b:6.0,r:18.3,g:12.3,lo:7,hi:18,tg:34.0,tb:31.3,tr:65.3,a:[10,33,47,55],tok:6.99}
@@ -153,9 +154,9 @@ document.addEventListener('pointerleave',function(){tip.classList.remove('on')})
 
 /* ---------- Figura 1: baseline -> repair ---------- */
 (function(){
-  var X0=190,W=450,x=function(v){return X0+v/100*W},rows=[50,108,166,224],h='';
-  [0,25,50,75,100].forEach(function(t){h+=S('line',{x1:x(t),x2:x(t),y1:24,y2:252,'class':'grid'})+T(x(t),272,t+' %',{a:'middle',k:'tm',s:11})});
-  h+=T(X0,298,'Tasa de éxito REAL',{k:'t2',s:11});
+  var X0=190,W=450,x=function(v){return X0+v/100*W},rows=[50,108,166,224,282],h='';
+  [0,25,50,75,100].forEach(function(t){h+=S('line',{x1:x(t),x2:x(t),y1:24,y2:310,'class':'grid'})+T(x(t),330,t+' %',{a:'middle',k:'tm',s:11})});
+  h+=T(X0,356,'Tasa de éxito REAL',{k:'t2',s:11});
   M.forEach(function(m,i){
     var y=rows[i],col='var('+m.c+')';
     h+=T(16,y+4,m.n,{w:600,s:13});
@@ -194,26 +195,27 @@ document.addEventListener('pointerleave',function(){tip.classList.remove('on')})
 
 /* ---------- Figura 3: tesis vs réplica ---------- */
 (function(){
-  var X0=190,W=450,x=function(v){return X0+v/80*W},rows=[56,114,172,230],h='';
-  [0,20,40,60,80].forEach(function(t){h+=S('line',{x1:x(t),x2:x(t),y1:24,y2:254,'class':'grid'})+T(x(t),274,(t?'+':'')+t+' pp',{a:'middle',k:'tm',s:11})});
-  h+=T(X0,298,'Mejora de repair sobre baseline',{k:'t2',s:11});
+  var X0=190,W=450,x=function(v){return X0+v/80*W},rows=[56,114,172,230,288],h='';
+  [0,20,40,60,80].forEach(function(t){h+=S('line',{x1:x(t),x2:x(t),y1:24,y2:312,'class':'grid'})+T(x(t),332,(t?'+':'')+t+' pp',{a:'middle',k:'tm',s:11})});
+  h+=T(X0,356,'Mejora de repair sobre baseline',{k:'t2',s:11});
   M.forEach(function(m,i){
-    var y=rows[i],col='var('+m.c+')';
+    var y=rows[i],col='var('+m.c+')',has=m.tg!=null;
     h+=T(16,y+4,m.n,{w:600,s:13});
-    h+=S('line',{x1:x(m.tg),x2:x(m.g),y1:y,y2:y,stroke:'var(--muted)','stroke-width':1.5,'stroke-dasharray':'3 3'});
+    if(has) h+=S('line',{x1:x(m.tg),x2:x(m.g),y1:y,y2:y,stroke:'var(--muted)','stroke-width':1.5,'stroke-dasharray':'3 3'});
     h+=S('line',{x1:x(m.lo),x2:x(m.hi),y1:y,y2:y,stroke:col,'stroke-width':6,'stroke-linecap':'round',opacity:.35});
-    h+=S('circle',{cx:x(m.tg),cy:y,r:6.5,fill:'var(--surface)',stroke:'var(--ink2)','stroke-width':2.5});
+    if(has) h+=S('circle',{cx:x(m.tg),cy:y,r:6.5,fill:'var(--surface)',stroke:'var(--ink2)','stroke-width':2.5})+T(x(m.tg),y-14,'+'+fmt(m.tg),{a:'middle',k:'t2',s:11});
     h+=S('circle',{cx:x(m.g),cy:y,r:6.5,fill:col,stroke:'var(--surface)','stroke-width':2});
-    h+=T(x(m.tg),y-14,'+'+fmt(m.tg),{a:'middle',k:'t2',s:11});
     h+=T(x(m.g),y-14,'+'+fmt(m.g),{a:'middle',w:600,s:11});
-    h+=S('rect',{x:x(Math.min(m.tg,m.g,m.lo))-10,y:y-18,width:x(Math.max(m.tg,m.g,m.hi))-x(Math.min(m.tg,m.g,m.lo))+20,height:36,fill:'transparent','class':'hit','data-tip':'<b>'+m.n+'</b><br>tesis +'+fmt(m.tg)+' pp ('+fmt(m.tb)+' → '+fmt(m.tr)+' %)<br>réplica +'+fmt(m.g)+' pp ('+fmt(m.b)+' → '+fmt(m.r)+' %)'});
+    if(!has) h+=T(x(m.hi)+14,y+4,'sin cifra en la tesis',{k:'tm',s:11});
+    var lo=has?Math.min(m.tg,m.g,m.lo):Math.min(m.g,m.lo),hi=has?Math.max(m.tg,m.g,m.hi):Math.max(m.g,m.hi);
+    h+=S('rect',{x:x(lo)-10,y:y-18,width:x(hi)-x(lo)+20,height:36,fill:'transparent','class':'hit','data-tip':'<b>'+m.n+'</b><br>'+(has?'tesis +'+fmt(m.tg)+' pp ('+fmt(m.tb)+' → '+fmt(m.tr)+' %)<br>':'sin cifra en la tesis<br>')+'réplica +'+fmt(m.g)+' pp ('+fmt(m.b)+' → '+fmt(m.r)+' %)'});
   });
   document.getElementById('c3').innerHTML=h;
 })();
 
 /* ---------- Tabla ---------- */
 document.getElementById('tbl').innerHTML='<tr><th>Modelo</th><th>Tesis base → rep.</th><th>Réplica base → rep.</th><th>Mejora réplica (IC 95 %)</th><th>Múltiplo de tokens</th></tr>'+
- M.map(function(m){return '<tr><td>'+m.n+'</td><td>'+fmt(m.tb)+' → '+fmt(m.tr)+' %</td><td>'+fmt(m.b)+' → '+fmt(m.r)+' %</td><td>+'+fmt(m.g)+' pp ['+m.lo+', '+m.hi+']</td><td>'+fmt(m.tok,2)+'×</td></tr>'}).join('');
+ M.map(function(m){return '<tr><td>'+m.n+'</td><td>'+(m.tb==null?'no verificable':fmt(m.tb)+' → '+fmt(m.tr)+' %')+'</td><td>'+fmt(m.b)+' → '+fmt(m.r)+' %</td><td>+'+fmt(m.g)+' pp ['+m.lo+', '+m.hi+']</td><td>'+fmt(m.tok,2)+'×</td></tr>'}).join('');
 
 /* ---------- Diagrama de flujo ---------- */
 (function(){
@@ -222,7 +224,7 @@ document.getElementById('tbl').innerHTML='<tr><th>Modelo</th><th>Tesis base → 
   function box(x,y,w,hh,t,sub,loop){var st=loop?'var(--loop)':'currentColor';
     return S('rect',{x:x,y:y,width:w,height:hh,rx:6,fill:'var(--surface)',stroke:st,'stroke-width':loop?2:1.5,style:'color:var(--ink)'})+T(x+w/2,y+hh/2-3,t,{a:'middle',w:600,s:13})+T(x+w/2,y+hh/2+14,sub,{a:'middle',k:'t2',s:11})}
   function arr(d,loop,dash){return S('path',{d:d,fill:'none',stroke:loop?'var(--loop)':'currentColor','stroke-width':loop?2:1.5,'marker-end':loop?'url(#arl)':'url(#ar)','stroke-dasharray':dash||'none',style:'color:var(--ink)'})}
-  h+=box(20,90,170,56,'Plan del bloque','2 400 ejecuciones');
+  h+=box(20,90,170,56,'Plan del bloque','3 000 ejecuciones');
   h+=box(235,90,150,56,'Generar','el modelo escribe tests');
   h+=box(430,90,150,56,'Parsear','JSON {code, note}');
   h+=box(630,90,150,56,'Validar','compila y ejecuta los tests');

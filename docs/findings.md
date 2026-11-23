@@ -138,13 +138,36 @@ Con el mismo prompt, parámetros y tareas se añade el bloque `ampliacion` (600 
 | `qwen2.5-coder:7b` | 4/10 → 6/10 | 40 % → 85 % |
 | `llama3.1:8b` | 1/10 → 3/10 | 30 % → 85 % |
 
-**Java, bloque estadístico, Python y Node:** pendientes. Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio agregado 3,74 con el criterio ingenuo, que la propia tesis rebaja a 2,60 al retirar la contribución inflada de Llama 3.1 (verificado en el PDF); 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
+**Java, bloque estadístico:** completo, véase la sección siguiente. **Python y Node:** pendientes. Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio agregado 3,74 con el criterio ingenuo, que la propia tesis rebaja a 2,60 al retirar la contribución inflada de Llama 3.1 (verificado en el PDF); 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
+
+### Resultados del bloque estadístico ampliado (Java)
+
+Cabe señalar que el informe completo, con cinco modelos y 3.000 ejecuciones válidas (las 2.400 del bloque estadístico más las 600 de la ampliación con Ornith), figura en [results/runs/estadistico/java/informe.md](../results/runs/estadistico/java/informe.md). Tasas REAL de 300 ejecuciones por celda, con la mejora de reparación sobre baseline en puntos porcentuales y su intervalo de confianza del 95 % (Newcombe):
+
+| Modelo | Baseline | Repair | Mejora (IC 95 %) | Vacíos | Múltiplo de tokens |
+|---|---:|---:|---|---:|---:|
+| `qwen3:8b` | 0,0 % | 74,7 % | +75 [+69, +79] | 0 % | 4,48 |
+| `ornith-1.5:9b` | 25,0 % | 64,0 % | +39 [+31, +46] | 4 % | 4,38 |
+| `qwen2.5-coder:7b` | 32,3 % | 58,7 % | +26 [+18, +34] | 0 % | 4,19 |
+| `llama3.1:8b` | 8,3 % | 53,3 % | +45 [+38, +51] | 0 % | 5,49 |
+| `gemma4:e4b` | 6,0 % | 18,3 % | +12 [+7, +18] | 1 % | 6,99 |
+
+Lectura, sin afirmar coincidencia con la tesis:
+
+- La reparación mejora a los cinco modelos y el intervalo no contiene el cero en ninguno. Los intervalos son optimistas por la falta de independencia indicada en los límites.
+- El tamaño de la mejora y el orden de los modelos difieren de los de la tesis. Con reparación, la tesis sitúa a `gemma4:e4b` en cabeza (65,3 %) y a `llama3.1:8b` en último lugar (22,3 %); la réplica los invierte (18,3 % y 53,3 %). La mejora sustantiva de la tesis frente a la de la réplica es de +34,0 frente a +12,3 puntos en `gemma4:e4b`, +4,6 frente a +45,0 en `llama3.1:8b`, +20,0 frente a +26,4 en `qwen2.5-coder:7b` y +9,3 frente a +74,7 en `qwen3:8b`.
+- `ornith-1.5:9b` no figura en la tesis y su cifra se marca "no verificable". Su baseline (25,0 %) es la más alta tras la de `qwen2.5-coder:7b`; no se ha analizado a qué se debe.
+- La tesis sitúa el problema de los éxitos vacíos en `llama3.1:8b`; en la réplica es del 0 %. El único modelo con una proporción apreciable es `ornith-1.5:9b` (4 %).
+- El múltiplo de tokens de la reparación va de 4,19 a 6,99, algo por encima del intervalo de unos 3 a 6 que publica la tesis.
+- Todo ello debe leerse con la limitación del prompt descrita más arriba, que penaliza sobre todo a `qwen3:8b` en baseline.
+
+Nota de procedimiento: una ejecución de la ampliación (`java-StringUtils-length`, baseline, repetición 12) quedó inicialmente inválida por un `UnicodeEncodeError` (un carácter suelto en la respuesta del modelo), fallo de infraestructura y no resultado. Conforme al diseño del ejecutor, que reintenta las ejecuciones con fallo de infraestructura, se repitió una sola vez y salió válida; el informe no contiene ninguna ejecución inválida.
 
 ### Criterios de éxito (sección 11 de la especificación)
 
-- Mejora por reparación en al menos tres de los cuatro modelos de Java (criterio: diferencia positiva con intervalo de confianza del 95 % que excluye el cero): **sin evaluar**; solo hay dos modelos en el bloque determinista, que no cuenta como evidencia estadística, y el estadístico no está completo.
-- Porcentaje de éxitos vacíos por modelo: en el determinista fue 0 % (48 aceptados, 48 REAL); la discusión de su concentración queda para el estadístico, donde la tesis sitúa el problema en Llama 3.1.
-- Múltiplo de tokens de la reparación: lo calcula el informe por modelo; pendiente del bloque completo.
+- Mejora por reparación en al menos tres de los cuatro modelos de Java (criterio: diferencia positiva con intervalo de confianza del 95 % que excluye el cero): **cumplido**, y en los cinco modelos (los cuatro del bloque original y Ornith); los intervalos son optimistas por la falta de independencia indicada en los límites.
+- Porcentaje de éxitos vacíos por modelo: 0 % en `llama3.1:8b`, `qwen2.5-coder:7b` y `qwen3:8b`, 1 % en `gemma4:e4b` y 4 % en `ornith-1.5:9b`; en el determinista fue 0 % (48 aceptados, 48 REAL). La tesis sitúa el problema en Llama 3.1, que en la réplica no lo presenta.
+- Múltiplo de tokens de la reparación: de 4,19 (`qwen2.5-coder:7b`) a 6,99 (`gemma4:e4b`), según el informe del bloque estadístico ampliado.
 
 ### Límites
 

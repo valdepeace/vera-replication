@@ -1,0 +1,39 @@
+{
+  "block": "ampliacion",
+  "language": "java",
+  "prompt_version": "vera01-p1",
+  "sessions": [
+    {
+      "started_at": "2026-11-23T08:24:50.855628+00:00",
+      "harness_commit": "0c60f0f4419f268b9c8cc57ae932b659983c2d71",
+      "planned": 600,
+      "env": {
+        "python": "3.12.10",
+        "java": "openjdk version \"11.0.23\" 2024-04-16",
+        "maven": "3.9.9",
+        "commons_lang_commit": "89bb30909bf873d75f5e06d144f9b2e72d74c076",
+        "ollama_version": "0.40.13",
+        "gpu": "NVIDIA GeForce RTX 3060 Ti, 8192 MiB, 610.88",
+        "models": {
+          "ornith-1.5:9b": null
+        }
+      }
+    },
+    {
+      "started_at": "2026-11-23T13:41:48.246904+00:00",
+      "harness_commit": "32ac54ae23202a9a672ac32da7a7e8767471790d",
+      "planned": 600,
+      "env": {
+        "python": "3.12.10",
+        "java": "openjdk version \"11.0.23\" 2024-04-16",
+        "maven": "3.9.9",
+        "commons_lang_commit": "89bb30909bf873d75f5e06d144f9b2e72d74c076",
+        "ollama_version": "0.40.13",
+        "gpu": "NVIDIA GeForce RTX 3060 Ti, 8192 MiB, 610.88",
+        "models": {
+          "ornith-1.5:9b": null
+        }
+      }
+    }
+  ]
+}
