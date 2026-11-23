@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from vera.models import MODELS
-from vera.prompts import PROMPT_VERSION
+from vera.prompts import PROMPT_VERSION, PROMPT_VERSION_P2
 from vera.types import Condition, RunConfig, Task
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +24,7 @@ class BlockSpec:
     task_filter: Callable[[list[Task]], list[Task]]
     # Semilla común a todas las ejecuciones del bloque; None: semilla derivada del run_id.
     fixed_seed: int | None = None
+    prompt_version: str = PROMPT_VERSION
 
 
 DETERMINISTIC = BlockSpec(
@@ -54,7 +55,19 @@ EXTENSION = BlockSpec(
     task_filter=lambda tasks: list(tasks),
 )
 
-BLOCKS: dict[str, BlockSpec] = {b.name: b for b in (DETERMINISTIC, STATISTICAL, EXTENSION)}
+# Repetición del bloque estadístico con el prompt vera01-p2 (import completo de la clase) y los cinco
+# modelos; protocolo fijado de antemano en docs/prerregistro-vera01-p2.md.
+STATISTICAL_P2 = BlockSpec(
+    name="estadistico-p2",
+    models=["llama3.1:8b", "qwen2.5-coder:7b", "qwen3:8b", "gemma4:e4b", "ornith-1.5:9b"],
+    temperature=0.7,
+    repetitions=15,
+    task_filter=lambda tasks: list(tasks),
+    prompt_version=PROMPT_VERSION_P2,
+)
+
+BLOCKS: dict[str, BlockSpec] = {
+    b.name: b for b in (DETERMINISTIC, STATISTICAL, EXTENSION, STATISTICAL_P2)}
 
 
 def load_tasks(language: str) -> list[Task]:
@@ -82,7 +95,7 @@ def expand_block(block: BlockSpec, tasks: list[Task]) -> list[RunConfig]:
                     config = RunConfig(
                         block=block.name, model=model, task=task, condition=condition,
                         repetition=repetition, seed=0, temperature=block.temperature,
-                        prompt_version=PROMPT_VERSION,
+                        prompt_version=block.prompt_version,
                     )
                     seed = block.fixed_seed if block.fixed_seed is not None else seed_for(config.run_id)
                     configs.append(replace(config, seed=seed))

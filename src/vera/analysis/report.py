@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 
-from vera.prompts import PROMPT_VERSION
+from vera.prompts import PROMPT_VERSION, PROMPT_VERSION_P2
 from vera.analysis.summary import (
     REPLICA_BLOCKS,
     Rate,
@@ -87,16 +87,16 @@ def _language_section(language: str, records) -> list[str]:
     return lines
 
 
-def _conditions_section(records) -> list[str]:
+def _conditions_section(records, expected_version: str = PROMPT_VERSION) -> list[str]:
     models = {}
     for r in records:
         models.setdefault(r.config.model.name, r.config.model)
     versions = sorted({r.config.prompt_version for r in records})
     lines = ["## Condiciones declaradas", "",
              f"- Versión del prompt en los registros: {', '.join(versions) or '—'} "
-             f"(vigente en el código: `{PROMPT_VERSION}`)."]
-    if versions != [PROMPT_VERSION]:
-        lines.append(f"- AVISO: la versión de los registros no coincide con `{PROMPT_VERSION}`.")
+             f"(prevista para el bloque: `{expected_version}`)."]
+    if versions != [expected_version]:
+        lines.append(f"- AVISO: la versión de los registros no coincide con `{expected_version}`.")
     for name in sorted(models):
         lines.append(f"- Motor de `{name}`: {models[name].engine} en {models[name].base_url}.")
     for label, values in (
@@ -110,7 +110,7 @@ def _conditions_section(records) -> list[str]:
     return lines
 
 
-def _limits_section(languages) -> list[str]:
+def _limits_section(languages, versions=()) -> list[str]:
     lines = ["## Límites de lectura", "",
              "- **Cota de falsos REAL.** `REAL` procede de una auditoría estática (el "
              "test contiene `@Test`/aserciones y llama al método focal), no de una "
@@ -130,15 +130,16 @@ def _limits_section(languages) -> list[str]:
     if "java" in languages:
         lines.append("  - Java: la auditoría es estructural; una aserción puede ser vacua "
                      "(no mide el poder de detección).")
-        lines.append("- **Prompt sin el paquete de la clase (Java).** El prompt reconstruido exige "
-                     "`package org.generated;` e indica la clase bajo prueba solo por su nombre "
-                     "(por ejemplo `BooleanUtils`), sin su paquete `org.apache.commons.lang3`. El "
-                     "modelo debe deducirlo por sí mismo: buena parte de los fallos del primer "
-                     "intento son errores de compilación por una importación equivocada y no de "
-                     "calidad de los tests, de modo que la tasa mide también si el modelo conoce "
-                     "Commons Lang. Afecta de forma muy desigual a los modelos (véase "
-                     "docs/findings.md) y las tasas absolutas, en particular el 0 % de baseline de "
-                     "qwen3:8b, deben leerse con esta salvedad.")
+        if PROMPT_VERSION_P2 not in versions:
+            lines.append("- **Prompt sin el paquete de la clase (Java).** El prompt reconstruido exige "
+                         "`package org.generated;` e indica la clase bajo prueba solo por su nombre "
+                         "(por ejemplo `BooleanUtils`), sin su paquete `org.apache.commons.lang3`. El "
+                         "modelo debe deducirlo por sí mismo: buena parte de los fallos del primer "
+                         "intento son errores de compilación por una importación equivocada y no de "
+                         "calidad de los tests, de modo que la tasa mide también si el modelo conoce "
+                         "Commons Lang. Afecta de forma muy desigual a los modelos (véase "
+                         "docs/findings.md) y las tasas absolutas, en particular el 0 % de baseline de "
+                         "qwen3:8b, deben leerse con esta salvedad.")
     lines += ["- **No independencia.** Los intervalos de Newcombe tratan las ejecuciones como "
               "independientes, pero comparten método focal (mismos métodos en cada celda y "
               "repeticiones del mismo método), modelo y comando de validación, y las "
@@ -221,7 +222,10 @@ def render_markdown(records, *, block: str, planned_ids, partial_ok: bool = Fals
                   f"deben citarse.", ""]
     lines += [f"Ejecuciones: {len(records)} (válidas: {sum(r.valid for r in records)}; "
               f"planificadas: {len(planned)})", ""]
-    lines += _conditions_section(records)
+    from vera.blocks import BLOCKS
+
+    expected = BLOCKS[block].prompt_version if block in BLOCKS else PROMPT_VERSION
+    lines += _conditions_section(records, expected)
     if block == "determinista":
         lines += [f"Estabilidad entre repeticiones: {_num(stability(records), '.0%')}", ""]
     languages = sorted({r.config.task.language for r in records})
@@ -233,5 +237,5 @@ def render_markdown(records, *, block: str, planned_ids, partial_ok: bool = Fals
     else:
         lines += ["## Comparación con la tesis", "",
                   "Omitida: una corrida parcial no se compara con la tesis.", ""]
-    lines += _limits_section(languages)
+    lines += _limits_section(languages, versions)
     return "\n".join(lines)

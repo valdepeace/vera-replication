@@ -46,6 +46,7 @@ python -m venv .venv && .venv/Scripts/pip install -e ".[dev,analysis]"
 python -m vera run    --block estadistico --language java        # 2400 ejecuciones, reanudable
 python -m vera run    --block ampliacion  --language java        # 600 ejecuciones más (Ornith 1.5 9B)
 python -m vera report --block estadistico --with ampliacion --language java
+python -m vera run    --block estadistico-p2 --language java     # 3000 ejecuciones con el prompt vera01-p2
 ```
 
 Los registros crudos (`results/runs/*/*/records/`) **no se versionan**: ocupan decenas de megabytes y se regeneran

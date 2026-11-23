@@ -35,6 +35,39 @@ def test_constants():
     assert sorted(OUTPUT_SCHEMA["required"]) == ["code", "note"]
 
 
+def test_p1_java_prompt_is_unchanged_and_ignores_import_hint():
+    with_hint = text_of(generation_messages(make_task(import_hint="import a.b.C;")))
+    without = text_of(generation_messages(make_task(import_hint="")))
+    assert with_hint == without
+    assert "Import the class under test as org.apache.commons.lang3.StringUtils." in with_hint
+    assert "import a.b.C;" not in with_hint
+
+
+def test_p2_java_prompt_gives_the_full_import_and_changes_nothing_else():
+    from vera.prompts import PROMPT_VERSION_P2
+
+    task = make_task(container="StringUtils", import_hint="import org.apache.commons.lang3.StringUtils;")
+    p1 = text_of(generation_messages(task)).splitlines()
+    p2 = text_of(generation_messages(task, PROMPT_VERSION_P2)).splitlines()
+    diff = [(a, b) for a, b in zip(p1, p2) if a != b]
+    assert len(p1) == len(p2) and len(diff) == 1
+    assert diff[0] == ("Import the class under test as StringUtils.",
+                       "Import the class under test with: import org.apache.commons.lang3.StringUtils;")
+
+
+def test_p2_requires_import_hint_for_java_and_unknown_versions_fail():
+    import pytest as _pytest
+    from vera.prompts import PROMPT_VERSION_P2
+
+    with _pytest.raises(ValueError, match="import completo"):
+        generation_messages(make_task(import_hint=""), PROMPT_VERSION_P2)
+    with _pytest.raises(ValueError, match="desconocida"):
+        generation_messages(make_task(), "vera01-p9")
+    repaired = text_of(repair_messages(make_task(import_hint="import x.Y;"), "code", "diag",
+                                       PROMPT_VERSION_P2))
+    assert "import x.Y;" in repaired and "Your previous test file failed." in repaired
+
+
 def test_generation_messages_identical_for_both_conditions():
     task = make_task()
     first = generation_messages(task)

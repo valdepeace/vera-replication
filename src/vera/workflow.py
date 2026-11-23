@@ -44,8 +44,8 @@ def run_workflow(config: RunConfig, engine: ChatEngine, adapter: LanguageAdapter
     for index in range(1 + config.condition.max_repairs):
         kind = "generate" if index == 0 else "repair"
         messages = (
-            generation_messages(task) if index == 0
-            else repair_messages(task, previous_code, diagnostic)
+            generation_messages(task, config.prompt_version) if index == 0
+            else repair_messages(task, previous_code, diagnostic, config.prompt_version)
         )
         started = time.perf_counter()
         try:

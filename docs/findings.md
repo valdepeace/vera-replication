@@ -94,7 +94,7 @@ Ejecutado el 22 de noviembre de 2026 con `python -m vera run --block determinist
 
 ### Entorno
 
-Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.md); medición de motores y puerta de calidad con `num_ctx` 8192 en [medicion-8192.md](medicion-8192.md). Motor: Ollama 0.40.13 (puertos 11434 y 11435; 11431 para la ampliación); versión del prompt: `vera01-p1` (`PROMPT_VERSION`).
+Versiones, rutas y orden de preparación en [entorno-vera01.md](entorno-vera01.md); medición de motores y puerta de calidad con `num_ctx` 8192 en [medicion-8192.md](medicion-8192.md). Motor: Ollama 0.40.13 (puertos 11434 y 11435; 11431 para la ampliación y para p2, pues el 11435 quedó reservado por Windows); versión del prompt: `vera01-p1` (`PROMPT_VERSION`).
 
 ### Desviaciones respecto de la tesis
 
@@ -162,6 +162,22 @@ Lectura, sin afirmar coincidencia con la tesis:
 - Todo ello debe leerse con la limitación del prompt descrita más arriba, que penaliza sobre todo a `qwen3:8b` en baseline.
 
 Nota de procedimiento: una ejecución de la ampliación (`java-StringUtils-length`, baseline, repetición 12) quedó inicialmente inválida por un `UnicodeEncodeError` (un carácter suelto en la respuesta del modelo), fallo de infraestructura y no resultado. Conforme al diseño del ejecutor, que reintenta las ejecuciones con fallo de infraestructura, se repitió una sola vez y salió válida; el informe no contiene ninguna ejecución inválida.
+
+### Cuánto de la mejora procede de corregir la importación
+
+Cabe señalar que, entre las ejecuciones de la condición *repair* rescatadas por la reparación (aceptadas tras al menos una reparación), se clasificó el primer fallo según su diagnóstico. Primer fallo de resolución de símbolos (`cannot find symbol`, `does not exist` y similares):
+
+| Modelo | Rescatadas | Primer fallo de resolución de símbolos |
+|---|---:|---:|
+| `qwen3:8b` | 223 | 97 % |
+| `llama3.1:8b` | 138 | 84 % |
+| `gemma4:e4b` | 45 | 71 % |
+| `qwen2.5-coder:7b` | 89 | 64 % |
+| `ornith-1.5:9b` | 127 | 36 % |
+
+Es un tope y no una medida exacta de lo atribuible a la importación: `cannot find symbol` también aparece por un método o una variable inexistentes. Aun así, indica que en cuatro de los cinco modelos la mayor parte de la ganancia atribuida al bucle consiste en corregir símbolos que el prompt p1 no permitía resolver. `ornith-1.5:9b`, el menos afectado, mejora +39 puntos [+31, +46] con solo un 36 % de rescates de ese tipo, y es el caso que mejor sugiere un efecto genuino del bucle.
+
+Formulación prudente para citar estos resultados: *en esta réplica, el bucle validar-reparar mejora la tasa de tests con aserciones reales en los cinco modelos, si bien buena parte de la mejora procede de corregir errores de resolución de símbolos derivados de un prompt incompleto; su efecto sobre la calidad de los tests, aislado de ese factor, se mide en el bloque con el prompt `vera01-p2`, cuyo protocolo se fijó de antemano en [prerregistro-vera01-p2.md](prerregistro-vera01-p2.md).*
 
 ### Criterios de éxito (sección 11 de la especificación)
 

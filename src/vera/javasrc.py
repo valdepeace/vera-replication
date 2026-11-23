@@ -163,7 +163,7 @@ def build_tasks(repo: Path | str, methods: list[tuple[str, str]] = METHODS) -> l
                 focal_source=extract_method(text, sig),
                 container=cls,
                 test_name=f"Generated_{cls}_{name}_Test",
-                import_hint="",
+                import_hint=f"import org.apache.commons.lang3.{cls};",
             )
         )
     return tasks

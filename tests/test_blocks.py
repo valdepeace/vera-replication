@@ -2,6 +2,7 @@ from vera.blocks import (
     DETERMINISTIC,
     EXTENSION,
     STATISTICAL,
+    STATISTICAL_P2,
     expand_block,
     load_tasks,
     seed_for,
@@ -21,8 +22,9 @@ def _segments_by_model(configs):
 
 
 def test_models_registry_ports():
-    assert MODELS["llama3.1:8b"].base_url == "http://127.0.0.1:11435"
-    assert MODELS["gemma4:e4b"].base_url == "http://127.0.0.1:11435"
+    # El 11435 quedó reservado por Windows el 23-nov-2026; los modelos de E: se sirven desde el 11431.
+    assert MODELS["llama3.1:8b"].base_url == "http://127.0.0.1:11431"
+    assert MODELS["gemma4:e4b"].base_url == "http://127.0.0.1:11431"
     assert MODELS["qwen2.5-coder:7b"].base_url == "http://127.0.0.1:11434"
     assert MODELS["qwen3:8b"].base_url == "http://127.0.0.1:11434"
 
@@ -34,6 +36,23 @@ def test_extension_expands_to_600_runs_with_same_prompt_and_params():
     assert all(c.temperature == STATISTICAL.temperature for c in configs)
     assert all(c.prompt_version == PROMPT_VERSION for c in configs)
     assert MODELS["ornith-1.5:9b"].base_url == "http://127.0.0.1:11431"
+
+
+def test_p2_block_expands_to_3000_runs_and_only_the_prompt_version_differs():
+    from vera.prompts import PROMPT_VERSION_P2
+
+    tasks = load_tasks("java")
+    p2 = expand_block(STATISTICAL_P2, tasks)
+    assert len(p2) == 5 * 15 * 20 * 2
+    assert {c.model.name for c in p2} == {"llama3.1:8b", "qwen2.5-coder:7b", "qwen3:8b",
+                                          "gemma4:e4b", "ornith-1.5:9b"}
+    assert all(c.prompt_version == PROMPT_VERSION_P2 for c in p2)
+    assert all(c.block == "estadistico-p2" for c in p2)
+    p1 = expand_block(STATISTICAL, tasks)
+    assert all(c.prompt_version == PROMPT_VERSION for c in p1)
+    key = lambda c: (c.temperature, c.num_ctx, c.num_predict, c.keep_alive)
+    assert {key(c) for c in p1} == {key(c) for c in p2}
+    assert all(t.import_hint.startswith("import org.apache.commons.lang3.") for t in tasks)
 
 
 def test_deterministic_expands_to_80_runs():

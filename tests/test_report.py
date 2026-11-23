@@ -77,6 +77,16 @@ def test_merged_report_requires_complete_plan_and_single_prompt(make_record):
                         planned_ids=ids(base) | ids([other]))
 
 
+def test_p2_report_does_not_claim_the_p1_package_limit_and_expects_its_own_version(make_record):
+    from dataclasses import replace
+
+    records = [replace(r, config=replace(r.config, prompt_version="vera01-p2", block="estadistico-p2"))
+               for r in sample(make_record)]
+    md = render_markdown(records, block="estadistico-p2", planned_ids=ids(records))
+    assert "Prompt sin el paquete de la clase" not in md
+    assert "(prevista para el bloque: `vera01-p2`)" in md and "AVISO" not in md
+
+
 def test_java_report_documents_prompt_package_limit(make_record):
     records = sample(make_record)
     md = render_markdown(records, block="estadistico", planned_ids=ids(records))

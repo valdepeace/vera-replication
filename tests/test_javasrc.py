@@ -78,6 +78,7 @@ def test_build_tasks_builds_fixed_task_fields(tmp_path):
     t = tasks[0]
     assert t.id == "java-X-isEmpty"
     assert t.test_name == "Generated_X_isEmpty_Test"
-    assert (t.language, t.project, t.container, t.import_hint) == ("java", "commons-lang", "X", "")
+    assert (t.language, t.project, t.container, t.import_hint) == (
+        "java", "commons-lang", "X", "import org.apache.commons.lang3.X;")
     assert t.focal_name == "isEmpty"
     json.dumps(t.__dict__)

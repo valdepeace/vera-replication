@@ -104,6 +104,21 @@ def test_generation_prompt_same_for_both_conditions():
     assert e1.calls[0]["messages"] == e2.calls[0]["messages"] == generation_messages(TASK)
 
 
+def test_workflow_uses_the_prompt_version_of_the_config_in_every_attempt():
+    from dataclasses import replace
+
+    from vera.prompts import PROMPT_VERSION_P2, repair_messages
+
+    task = replace(TASK, container="StringUtils",
+                   import_hint="import org.apache.commons.lang3.StringUtils;")
+    cfg = replace(config(Condition.REPAIR), task=task, prompt_version=PROMPT_VERSION_P2)
+    engine = FakeEngine([ok("a"), ok("b")])
+    run_workflow(cfg, engine, FakeAdapter([fail("err-a"), PASS]))
+    assert engine.calls[0]["messages"] == generation_messages(task, PROMPT_VERSION_P2)
+    assert engine.calls[1]["messages"] == repair_messages(task, "a", "err-a", PROMPT_VERSION_P2)
+    assert "with: import org.apache.commons.lang3.StringUtils;" in engine.calls[0]["messages"][-1]["content"]
+
+
 def test_repair_succeeds_on_third_attempt():
     engine = FakeEngine([ok("a"), ok("b"), ok("c")])
     adapter = FakeAdapter([fail("err-a"), fail("err-b"), PASS])

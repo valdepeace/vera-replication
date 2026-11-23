@@ -4,6 +4,8 @@ from __future__ import annotations
 from vera.types import Task
 
 PROMPT_VERSION = "vera01-p1"
+# vera01-p2 solo difiere de p1 en la regla de importación de Java: da la clase completa (paquete incluido).
+PROMPT_VERSION_P2 = "vera01-p2"
 MAX_DIAGNOSTIC_CHARS = 4000
 
 OUTPUT_SCHEMA: dict = {
@@ -44,8 +46,26 @@ _LANGUAGE_RULES = {
 }
 
 
-def _task_block(task: Task) -> str:
-    rules = _LANGUAGE_RULES[task.language].format(
+_JAVA_RULES_P2 = (
+    "Write a JUnit 5 test class (org.junit.jupiter.api) in Java.\n"
+    "The file must start with: package org.generated;\n"
+    "The public test class must be named exactly {test_name}.\n"
+    "Import the class under test with: {import_hint}\n"
+    "Every test method must use @Test and real assertions."
+)
+
+_RULES_BY_VERSION = {
+    PROMPT_VERSION: _LANGUAGE_RULES,
+    PROMPT_VERSION_P2: {**_LANGUAGE_RULES, "java": _JAVA_RULES_P2},
+}
+
+
+def _task_block(task: Task, version: str = PROMPT_VERSION) -> str:
+    if version not in _RULES_BY_VERSION:
+        raise ValueError(f"versión de prompt desconocida: {version}")
+    if version == PROMPT_VERSION_P2 and task.language == "java" and not task.import_hint:
+        raise ValueError("vera01-p2 exige el import completo de la clase (import_hint) en Java")
+    rules = _RULES_BY_VERSION[version][task.language].format(
         test_name=task.test_name,
         container=task.container,
         import_hint=task.import_hint,
@@ -58,17 +78,18 @@ def _task_block(task: Task) -> str:
     )
 
 
-def generation_messages(task: Task) -> list[dict[str, str]]:
+def generation_messages(task: Task, version: str = PROMPT_VERSION) -> list[dict[str, str]]:
     return [
         {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": _task_block(task)},
+        {"role": "user", "content": _task_block(task, version)},
     ]
 
 
-def repair_messages(task: Task, previous_code: str, diagnostic: str) -> list[dict[str, str]]:
+def repair_messages(task: Task, previous_code: str, diagnostic: str,
+                    version: str = PROMPT_VERSION) -> list[dict[str, str]]:
     trimmed = diagnostic[:MAX_DIAGNOSTIC_CHARS]
     content = (
-        f"{_task_block(task)}\n\n"
+        f"{_task_block(task, version)}\n\n"
         f"Your previous test file failed.\n\n"
         f"Previous test file:\n{previous_code}\n\n"
         f"Diagnostic:\n{trimmed}\n\n"

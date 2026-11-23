@@ -14,7 +14,6 @@ from vera.adapters.base import LanguageAdapter
 from vera.blocks import REPO_ROOT, BlockSpec, expand_block, load_tasks
 from vera.engines.base import ChatEngine
 from vera.envinfo import collect_env_manifest
-from vera.prompts import PROMPT_VERSION
 from vera.store import RunStore
 from vera.types import RunConfig, RunRecord
 from vera.workflow import run_workflow
@@ -142,7 +141,7 @@ def _write_manifest(path: Path, block: BlockSpec, language: str, session: dict) 
     """Añade la sesión al manifiesto: cada reanudación deja constancia de su entorno."""
     manifest = (json.loads(path.read_text(encoding="utf-8")) if path.is_file()
                 else {"block": block.name, "language": language,
-                      "prompt_version": PROMPT_VERSION, "sessions": []})
+                      "prompt_version": block.prompt_version, "sessions": []})
     manifest["sessions"].append(session)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
