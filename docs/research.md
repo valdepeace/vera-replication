@@ -57,9 +57,9 @@ Usar un subconjunto filtrado por lenguaje o este ciclo de reparación modificado
 
 ## Qué contiene el paper disponible
 
-El archivo [1791733959420.pdf](paper/1791733959420.pdf) es la tesis de máster de **María Isabel González Sánchez** (UNED, septiembre de 2026), sobre generación automática de tests unitarios Java para Apache Commons Lang. Estudia modelos locales y un ciclo generate–validate–repair usando Maven y JUnit 5. Su contribución que más importa para VERA es auditar también los resultados aceptados: un test puede compilar y pasar porque no ejecuta ningún test o no contiene aserciones.
+El documento de referencia, cuyo PDF no se redistribuye en este repositorio, es la tesis de máster de **María Isabel González Sánchez** (UNED, septiembre de 2026), sobre generación automática de tests unitarios Java para Apache Commons Lang. Estudia modelos locales y un ciclo generate–validate–repair usando Maven y JUnit 5. Su contribución que más importa para VERA es auditar también los resultados aceptados: un test puede compilar y pasar porque no ejecuta ningún test o no contiene aserciones.
 
-**Nombre del archivo:** el prompt espera `validate-repair-uned-2026.pdf`, mientras que en el checkout el PDF tiene el nombre `1791733959420.pdf`. El contenido corresponde a la tesis de UNED citada aquí.
+**Archivo local:** el PDF de la tesis no forma parte del repositorio; quien desee verificar las cifras citadas debe obtenerlo de su fuente (véase la referencia final).
 
 ## Método que se quiere reproducir
 
@@ -102,4 +102,4 @@ Los resultados que se resumen arriba corresponden al estudio original de tests J
 
 ## Referencia
 
-González Sánchez, María Isabel. (2026, septiembre). *Agentic Validate–Repair Workflows for Local Large Language Models: A Controlled Empirical Evaluation on Automated Unit Test Generation* [Tesis de máster, MSc in Artificial Intelligence Research, UNED]. [PDF](paper/1791733959420.pdf).
+González Sánchez, María Isabel. (2026, septiembre). *Agentic Validate–Repair Workflows for Local Large Language Models: A Controlled Empirical Evaluation on Automated Unit Test Generation* [Tesis de máster, MSc in Artificial Intelligence Research, UNED]. (PDF no redistribuido en este repositorio).

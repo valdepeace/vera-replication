@@ -32,7 +32,7 @@ def planned_run_ids(block_name: str, language: str) -> set[str]:
     return {c.run_id for c in expand_block(BLOCKS[block_name], load_tasks(language))}
 
 
-# Cifras publicadas de la tesis (docs/paper/1791733959420.pdf; resumen en docs/research.md).
+# Cifras publicadas de la tesis (tesis citada en docs/research.md; su PDF no se redistribuye).
 # Bloque determinista (Tabla 4.3): métodos que pasan de 10, (baseline, reparación).
 THESIS_DETERMINISTIC = {"qwen2.5-coder:7b": (4, 6), "llama3.1:8b": (1, 3)}
 # Bloque estadístico, 300 ejecuciones por celda: porcentajes (ingenua base, ingenua rep.,
@@ -156,7 +156,7 @@ def _pct(value: float | None) -> str:
 
 def _thesis_section(block: str, records) -> list[str]:
     lines = ["## Comparación con la tesis", "",
-             "Fuente: tesis de González Sánchez (UNED, 2026), docs/paper/1791733959420.pdf; "
+             "Fuente: tesis de González Sánchez (UNED, 2026), citada en docs/research.md; "
              "resumen en docs/research.md. La tesis es de Java: no se comparan otros lenguajes. "
              "No se afirma coincidencia; una cifra que no consta publicada se marca "
              "\"no verificable\" y no se sustituye por ninguna estimación.", ""]

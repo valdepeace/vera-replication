@@ -1,6 +1,6 @@
 # Resumen práctico y metodológico
 
-**Fuente:** María Isabel González Sánchez, *Agentic Validate–Repair Workflows for Local Large Language Models: A Controlled Empirical Evaluation on Automated Unit Test Generation* (tesis de máster, UNED, septiembre de 2026). [PDF local](paper/1791733959420.pdf).
+**Fuente:** María Isabel González Sánchez, *Agentic Validate–Repair Workflows for Local Large Language Models: A Controlled Empirical Evaluation on Automated Unit Test Generation* (tesis de máster, UNED, septiembre de 2026). PDF no redistribuido en este repositorio.
 
 La tesis pregunta si un ciclo sencillo de validación y reparación puede mejorar la fiabilidad de modelos locales en una tarea real de ingeniería de software. La tarea elegida es generar tests unitarios Java para métodos de Apache Commons Lang. El caso es útil porque el resultado se puede ejecutar y medir, pero también revela un problema central: un resultado verde puede ser engañoso si el test no verifica nada.
 

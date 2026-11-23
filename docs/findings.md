@@ -11,7 +11,7 @@
 - Ollama 0.40.13, API `/api/chat` con `think: false`, temperatura 0.7, contexto 4096 y máximo de 2048 tokens de salida. Se registran semillas por candidato.
 - Python 3.12.10 con pytest 9.1.1; Node.js 24.8.0.
 
-La tesis que inspira la comparación y la auditoría es la de **María Isabel González Sánchez** (UNED, 2026), sobre generación de tests Java. Este piloto conserva la comparación generate–validate–repair y la auditoría de falsos éxitos, pero usa fixtures sintéticos en Python y JavaScript; no reproduce el experimento de la tesis. Véase [research.md](research.md) y el [PDF de la tesis](../paper/1791733959420.pdf).
+La tesis que inspira la comparación y la auditoría es la de **María Isabel González Sánchez** (UNED, 2026), sobre generación de tests Java. Este piloto conserva la comparación generate–validate–repair y la auditoría de falsos éxitos, pero usa fixtures sintéticos en Python y JavaScript; no reproduce el experimento de la tesis. Véase [research.md](research.md).
 
 ## Resultados
 
