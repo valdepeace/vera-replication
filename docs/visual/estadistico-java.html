@@ -1,0 +1,254 @@
+<title>VERA-01 Réplica Java</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Concepto: informe de laboratorio. Una columna de lectura, cuatro figuras, cada una con una sola afirmación. */
+:root{
+  --bg:#f2f2ef; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#7a7974; --line:#dcdbd5; --grid:#e8e7e2;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --loop:#6250d6;
+  --f-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; --f-head:'Space Grotesk','Inter',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121211; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#97968d; --line:#35342f; --grid:#2a2a27;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --loop:#9085e9; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121211; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#97968d; --line:#35342f; --grid:#2a2a27;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --loop:#9085e9; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+header h1{font-family:var(--f-head);font-weight:700;font-size:clamp(28px,5vw,40px);line-height:1.1;margin:0 0 10px;text-wrap:balance}
+header p{margin:0;color:var(--ink2);max-width:68ch}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+.facts{display:flex;flex-wrap:wrap;gap:8px 28px;margin:20px 0 0;padding:14px 0 0;border-top:1px solid var(--line)}
+.facts div{min-width:0}
+.facts dt{font-size:12px;color:var(--muted)} .facts dd{margin:0;font-family:var(--f-head);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+h2{font-family:var(--f-head);font-weight:700;font-size:22px;line-height:1.2;margin:0;text-wrap:balance}
+.lede{margin:0;color:var(--ink2);max-width:68ch}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 18px 14px;min-width:0}
+.scroll{overflow-x:auto}
+.scroll svg{display:block;width:100%;min-width:560px;height:auto}
+figcaption{font-size:13px;color:var(--ink2);margin-top:10px;max-width:72ch}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--ink2);margin-bottom:6px}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block;border:2.5px solid var(--ink2);background:var(--surface)}
+.dot.fill{background:var(--ink2)}
+.sw{width:18px;height:3px;border-radius:2px;display:inline-block}
+svg text{font-family:var(--f-body);fill:var(--ink)}
+.t2{fill:var(--ink2)!important}.tm{fill:var(--muted)!important}
+.grid{stroke:var(--grid);stroke-width:1}
+.hit{cursor:default}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;line-height:1.4;padding:6px 9px;border-radius:6px;max-width:240px;opacity:0;transition:opacity .08s}
+.tip.on{opacity:1}
+details{margin-top:12px;font-size:13px}
+summary{cursor:pointer;color:var(--ink2)}
+summary:focus-visible,a:focus-visible{outline:2px solid var(--loop);outline-offset:2px}
+table{border-collapse:collapse;width:100%;min-width:560px;font-variant-numeric:tabular-nums;margin-top:8px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--ink2);font-size:12px}
+.notes{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;max-width:72ch}
+.notes li{padding-left:16px;position:relative;color:var(--ink2)}
+.notes li::before{content:"";position:absolute;left:0;top:.7em;width:7px;height:2px;background:var(--muted)}
+.notes b{color:var(--ink);font-weight:600}
+footer{font-size:12px;color:var(--muted)}
+</style>
+
+<main>
+<header>
+  <p class="eyebrow">VERA-01 · bloque estadístico · Java</p>
+  <h1>Reparar con el diagnóstico mejora a los cuatro modelos, pero no como decía la tesis</h1>
+  <p>Primera comparativa de la réplica, con las 2 400 ejecuciones de la noche del 22 al 23 de noviembre de 2026. Cada modelo genera tests unitarios para métodos de Apache Commons Lang; en la condición <em>repair</em> puede corregirse hasta tres veces a partir del error que devuelve la validación.</p>
+  <dl class="facts">
+    <div><dt>Ejecuciones válidas</dt><dd>2 400 / 2 400</dd></div>
+    <div><dt>Modelos</dt><dd>4</dd></div>
+    <div><dt>Métodos × repeticiones</dt><dd>20 × 15</dd></div>
+    <div><dt>Temperatura</dt><dd>0,7</dd></div>
+    <div><dt>Contexto</dt><dd>8 192</dd></div>
+  </dl>
+</header>
+
+<section aria-labelledby="h-flujo">
+  <h2 id="h-flujo">Qué hace cada ejecución</h2>
+  <p class="lede">Una ejecución es un modelo, un método, una condición y una repetición. La única diferencia entre las dos condiciones es el bucle de reparación, marcado en violeta.</p>
+  <figure>
+    <div class="scroll">
+    <svg id="flow" viewBox="0 0 1000 420" role="img" aria-label="Flujo de una ejecución: generar, parsear, validar y decidir. En baseline termina ahí; en repair, si falla, repara hasta tres veces con el diagnóstico y vuelve a parsear."></svg>
+    </div>
+    <figcaption>En <em>baseline</em> hay un solo intento. En <em>repair</em> el modelo recibe su código anterior y el diagnóstico (error de compilación, test fallido o formato inválido) y vuelve a intentarlo, hasta cuatro intentos en total. Solo lo que pasa la validación llega a la auditoría estática, que decide si cuenta como REAL.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="h-comp">
+  <h2 id="h-comp">Tasa de éxito: baseline frente a repair</h2>
+  <p class="lede">En los cuatro modelos repair sube la tasa, y el intervalo de la mejora no toca el cero. La diferencia entre modelos es enorme: de +12 puntos en gemma4 a +75 en qwen3.</p>
+  <figure>
+    <div class="legend"><span><i class="dot"></i>baseline</span><span><i class="dot fill"></i>repair</span><span>300 ejecuciones por punto</span></div>
+    <div class="scroll"><svg id="c1" viewBox="0 0 760 310" role="img" aria-label="Tasa de éxito REAL por modelo en baseline y repair. qwen3:8b pasa de 0 % a 74,7 %, qwen2.5-coder de 32,3 % a 58,7 %, llama3.1 de 8,3 % a 53,3 % y gemma4 de 6,0 % a 18,3 %."></svg></div>
+    <figcaption>Tasa de éxito REAL. A la derecha, la mejora en puntos porcentuales con su intervalo de confianza del 95 % (Newcombe).</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="h-int">
+  <h2 id="h-int">Dónde llega la mejora</h2>
+  <p class="lede">En tres de los cuatro modelos casi todo se gana en la primera reparación. llama3.1 es el único que sigue subiendo hasta la tercera.</p>
+  <figure>
+    <div class="legend" id="leg2"></div>
+    <div class="scroll"><svg id="c2" viewBox="0 0 760 350" role="img" aria-label="Porcentaje acumulado de ejecuciones aceptadas en la condición repair según el intento. qwen3:8b pasa de 0,3 % en el primer intento a 58,3 % tras la primera reparación y 74,7 % al final."></svg></div>
+    <figcaption>Ejecuciones de la condición <em>repair</em> aceptadas como máximo en cada intento, sobre 300. qwen3:8b casi nunca acierta a la primera: su 0 % en baseline se debe a eso.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="h-tesis">
+  <h2 id="h-tesis">Réplica frente a la tesis</h2>
+  <p class="lede">Repair mejora siempre, como en la tesis, pero el tamaño de la mejora y el orden de los modelos cambian por completo. Se comparan las cifras sustantivas de Java.</p>
+  <figure>
+    <div class="legend"><span><i class="dot"></i>tesis</span><span><i class="dot fill"></i>réplica, con IC 95 %</span></div>
+    <div class="scroll"><svg id="c3" viewBox="0 0 760 310" role="img" aria-label="Mejora de repair sobre baseline en puntos porcentuales, tesis frente a réplica. qwen3:8b +9,3 en la tesis y +74,7 en la réplica; llama3.1 +4,6 y +45,0; qwen2.5-coder +20,0 y +26,4; gemma4 +34,0 y +12,3."></svg></div>
+    <figcaption>Mejora de repair sobre baseline, en puntos porcentuales. gemma4 es el que más mejora en la tesis y el que menos en la réplica; qwen3 y llama3.1 hacen lo contrario.</figcaption>
+    <details>
+      <summary>Ver los datos en tabla</summary>
+      <div class="scroll"><table id="tbl"></table></div>
+    </details>
+  </figure>
+</section>
+
+<section aria-labelledby="h-lim">
+  <h2 id="h-lim">Antes de citar estas cifras</h2>
+  <ul class="notes">
+    <li><b>El 0 % de qwen3 en baseline pide una revisión.</b> Falla casi siempre el primer intento (1 de 300 en repair) y se arregla en el segundo. Parece un fallo sistemático de la primera respuesta, no falta de capacidad, y conviene mirar sus diagnósticos antes de interpretarlo.</li>
+    <li><b>REAL es una auditoría estática.</b> Comprueba que el test tiene <code>@Test</code> y aserciones y llama al método focal. No ejecuta mutantes, así que una aserción vacua puede contar como REAL.</li>
+    <li><b>Los intervalos son optimistas.</b> Tratan las ejecuciones como independientes, pero comparten método focal, modelo y comando de validación.</li>
+    <li><b>Una máquina, un contexto.</b> Un solo equipo, <code>num_ctx</code> 8 192, prompts reconstruidos de la tesis, y dos instancias de Ollama (puertos 11434 y 11435) repartidas entre los modelos.</li>
+  </ul>
+</section>
+<footer>Datos: results/runs/estadistico/java (2 400 registros), informe generado con <code>python -m vera report --block estadistico --language java</code>. Versión del prompt vera01-p1.</footer>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(function(){
+var NS='http://www.w3.org/2000/svg';
+var fmt=function(n,d){d=d==null?1:d;return n.toFixed(d).replace('.',',')};
+var M=[
+ {n:'qwen3:8b',c:'--s3',b:0,r:74.7,g:74.7,lo:69,hi:79,tg:9.3,tb:42.7,tr:52.0,a:[1,175,220,224],tok:4.48},
+ {n:'qwen2.5-coder:7b',c:'--s2',b:32.3,r:58.7,g:26.4,lo:18,hi:34,tg:20.0,tb:25.0,tr:45.0,a:[87,161,172,176],tok:4.19},
+ {n:'llama3.1:8b',c:'--s1',b:8.3,r:53.3,g:45.0,lo:38,hi:51,tg:4.6,tb:17.7,tr:22.3,a:[22,105,144,160],tok:5.49},
+ {n:'gemma4:e4b',c:'--s4',b:6.0,r:18.3,g:12.3,lo:7,hi:18,tg:34.0,tb:31.3,tr:65.3,a:[10,33,47,55],tok:6.99}
+];
+function S(tag,at,txt){var e='<'+tag;for(var k in at){e+=' '+k+'="'+at[k]+'"'}e+='>';return e+(txt==null?'':txt)+'</'+tag+'>'}
+function T(x,y,txt,o){o=o||{};return S('text',{x:x,y:y,'text-anchor':o.a||'start','font-size':o.s||12,'font-weight':o.w||400,'class':o.k||'',fill:'currentColor'},txt)}
+var tip=document.getElementById('tip');
+document.addEventListener('pointermove',function(ev){
+  var t=ev.target.closest&&ev.target.closest('[data-tip]');
+  if(!t){tip.classList.remove('on');return}
+  tip.innerHTML=t.getAttribute('data-tip');tip.classList.add('on');
+  var x=Math.min(ev.clientX+14,window.innerWidth-250);tip.style.left=x+'px';tip.style.top=(ev.clientY+14)+'px';
+});
+document.addEventListener('pointerleave',function(){tip.classList.remove('on')});
+
+/* ---------- Figura 1: baseline -> repair ---------- */
+(function(){
+  var X0=190,W=450,x=function(v){return X0+v/100*W},rows=[50,108,166,224],h='';
+  [0,25,50,75,100].forEach(function(t){h+=S('line',{x1:x(t),x2:x(t),y1:24,y2:252,'class':'grid'})+T(x(t),272,t+' %',{a:'middle',k:'tm',s:11})});
+  h+=T(X0,298,'Tasa de éxito REAL',{k:'t2',s:11});
+  M.forEach(function(m,i){
+    var y=rows[i],col='var('+m.c+')';
+    h+=T(16,y+4,m.n,{w:600,s:13});
+    h+=S('line',{x1:x(m.b),x2:x(m.r),y1:y,y2:y,stroke:col,'stroke-width':3,'stroke-linecap':'round'});
+    h+=S('circle',{cx:x(m.b),cy:y,r:6.5,fill:'var(--surface)',stroke:col,'stroke-width':2.5});
+    h+=S('circle',{cx:x(m.r),cy:y,r:6.5,fill:col,stroke:'var(--surface)','stroke-width':2});
+    h+=T(x(m.b)-13,y+4,fmt(m.b)+' %',{a:'end',k:'t2'});
+    h+=T(x(m.r)+13,y+4,fmt(m.r)+' %',{w:600});
+    h+=T(662,y-3,'+'+fmt(m.g,0)+' pp',{w:600,s:13});
+    h+=T(662,y+13,'['+m.lo+', '+m.hi+']',{k:'tm',s:11});
+    h+=S('rect',{x:x(Math.min(m.b,m.r))-10,y:y-16,width:Math.abs(x(m.r)-x(m.b))+20,height:32,fill:'transparent','class':'hit','data-tip':'<b>'+m.n+'</b><br>baseline '+fmt(m.b)+' % → repair '+fmt(m.r)+' %<br>mejora +'+fmt(m.g)+' pp, IC 95 % ['+m.lo+', '+m.hi+']'});
+  });
+  document.getElementById('c1').innerHTML=h;
+})();
+
+/* ---------- Figura 2: aceptadas por intento ---------- */
+(function(){
+  var X0=70,DX=170,Y0=290,Y1=30,x=function(i){return X0+i*DX},y=function(v){return Y0-v/80*(Y0-Y1)},h='';
+  [0,20,40,60,80].forEach(function(t){h+=S('line',{x1:X0,x2:x(3),y1:y(t),y2:y(t),'class':'grid'})+T(X0-10,y(t)+4,t+' %',{a:'end',k:'tm',s:11})});
+  ['Intento 1','1.ª reparación','2.ª reparación','3.ª reparación'].forEach(function(l,i){h+=T(x(i),314,l,{a:'middle',k:'t2',s:11})});
+  h+=T(x(0),332,'(generar)',{a:'middle',k:'tm',s:11});
+  var nudge={'qwen2.5-coder:7b':-5,'llama3.1:8b':6};
+  M.forEach(function(m){
+    var col='var('+m.c+')',cum=0,pts=m.a.map(function(v,i){cum+=0;return v/3});
+    var p=m.a.map(function(v,i){return x(i)+','+y(v/3)}).join(' ');
+    h+=S('polyline',{points:p,fill:'none',stroke:col,'stroke-width':2.5,'stroke-linejoin':'round','stroke-linecap':'round'});
+    m.a.forEach(function(v,i){
+      h+=S('circle',{cx:x(i),cy:y(v/3),r:5,fill:col,stroke:'var(--surface)','stroke-width':2});
+      h+=S('circle',{cx:x(i),cy:y(v/3),r:14,fill:'transparent','class':'hit','data-tip':'<b>'+m.n+'</b><br>'+(i?i+'.ª reparación':'Primer intento')+': '+v+' de 300 ('+fmt(v/3)+' %) aceptadas'});
+    });
+    h+=T(x(3)+14,y(m.a[3]/3)+4+(nudge[m.n]||0),m.n+'  '+fmt(m.a[3]/3)+' %',{w:600});
+  });
+  document.getElementById('c2').innerHTML=h;
+  document.getElementById('leg2').innerHTML=M.map(function(m){return '<span><i class="sw" style="background:var('+m.c+')"></i>'+m.n+'</span>'}).join('');
+})();
+
+/* ---------- Figura 3: tesis vs réplica ---------- */
+(function(){
+  var X0=190,W=450,x=function(v){return X0+v/80*W},rows=[56,114,172,230],h='';
+  [0,20,40,60,80].forEach(function(t){h+=S('line',{x1:x(t),x2:x(t),y1:24,y2:254,'class':'grid'})+T(x(t),274,(t?'+':'')+t+' pp',{a:'middle',k:'tm',s:11})});
+  h+=T(X0,298,'Mejora de repair sobre baseline',{k:'t2',s:11});
+  M.forEach(function(m,i){
+    var y=rows[i],col='var('+m.c+')';
+    h+=T(16,y+4,m.n,{w:600,s:13});
+    h+=S('line',{x1:x(m.tg),x2:x(m.g),y1:y,y2:y,stroke:'var(--muted)','stroke-width':1.5,'stroke-dasharray':'3 3'});
+    h+=S('line',{x1:x(m.lo),x2:x(m.hi),y1:y,y2:y,stroke:col,'stroke-width':6,'stroke-linecap':'round',opacity:.35});
+    h+=S('circle',{cx:x(m.tg),cy:y,r:6.5,fill:'var(--surface)',stroke:'var(--ink2)','stroke-width':2.5});
+    h+=S('circle',{cx:x(m.g),cy:y,r:6.5,fill:col,stroke:'var(--surface)','stroke-width':2});
+    h+=T(x(m.tg),y-14,'+'+fmt(m.tg),{a:'middle',k:'t2',s:11});
+    h+=T(x(m.g),y-14,'+'+fmt(m.g),{a:'middle',w:600,s:11});
+    h+=S('rect',{x:x(Math.min(m.tg,m.g,m.lo))-10,y:y-18,width:x(Math.max(m.tg,m.g,m.hi))-x(Math.min(m.tg,m.g,m.lo))+20,height:36,fill:'transparent','class':'hit','data-tip':'<b>'+m.n+'</b><br>tesis +'+fmt(m.tg)+' pp ('+fmt(m.tb)+' → '+fmt(m.tr)+' %)<br>réplica +'+fmt(m.g)+' pp ('+fmt(m.b)+' → '+fmt(m.r)+' %)'});
+  });
+  document.getElementById('c3').innerHTML=h;
+})();
+
+/* ---------- Tabla ---------- */
+document.getElementById('tbl').innerHTML='<tr><th>Modelo</th><th>Tesis base → rep.</th><th>Réplica base → rep.</th><th>Mejora réplica (IC 95 %)</th><th>Múltiplo de tokens</th></tr>'+
+ M.map(function(m){return '<tr><td>'+m.n+'</td><td>'+fmt(m.tb)+' → '+fmt(m.tr)+' %</td><td>'+fmt(m.b)+' → '+fmt(m.r)+' %</td><td>+'+fmt(m.g)+' pp ['+m.lo+', '+m.hi+']</td><td>'+fmt(m.tok,2)+'×</td></tr>'}).join('');
+
+/* ---------- Diagrama de flujo ---------- */
+(function(){
+  var h='<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>'+
+        '<marker id="arl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--loop)"/></marker></defs>';
+  function box(x,y,w,hh,t,sub,loop){var st=loop?'var(--loop)':'currentColor';
+    return S('rect',{x:x,y:y,width:w,height:hh,rx:6,fill:'var(--surface)',stroke:st,'stroke-width':loop?2:1.5,style:'color:var(--ink)'})+T(x+w/2,y+hh/2-3,t,{a:'middle',w:600,s:13})+T(x+w/2,y+hh/2+14,sub,{a:'middle',k:'t2',s:11})}
+  function arr(d,loop,dash){return S('path',{d:d,fill:'none',stroke:loop?'var(--loop)':'currentColor','stroke-width':loop?2:1.5,'marker-end':loop?'url(#arl)':'url(#ar)','stroke-dasharray':dash||'none',style:'color:var(--ink)'})}
+  h+=box(20,90,170,56,'Plan del bloque','2 400 ejecuciones');
+  h+=box(235,90,150,56,'Generar','el modelo escribe tests');
+  h+=box(430,90,150,56,'Parsear','JSON {code, note}');
+  h+=box(630,90,150,56,'Validar','compila y ejecuta los tests');
+  h+=arr('M190 118H233')+T(212,108,'una',{a:'middle',k:'tm',s:11});
+  h+=arr('M385 118H428')+arr('M580 118H628');
+  h+=T(604,108,'ok',{a:'middle',k:'tm',s:11});
+  h+=arr('M705 146V210');
+  h+=S('polygon',{points:'705,212 775,250 705,288 635,250',fill:'var(--surface)',stroke:'currentColor','stroke-width':1.5})+T(705,254,'¿pasa?',{a:'middle',w:600,s:13});
+  /* bucle de reparación */
+  h+=box(400,222,150,56,'Reparar','código + diagnóstico',true);
+  h+=arr('M635 250H552',true)+T(594,242,'no · quedan',{a:'middle',k:'t2',s:11});
+  h+=arr('M520 222V148',true)+T(528,196,'versión reparada',{k:'t2',s:11});
+  h+=arr('M445 148V220',true,'4 3')+T(437,196,'formato inválido',{a:'end',k:'t2',s:11});
+  /* salida */
+  h+=arr('M775 250H848')+T(811,242,'sí',{a:'middle',k:'t2',s:11});
+  h+=box(850,222,130,56,'Auditoría','¿@Test y aserciones?');
+  h+=arr('M915 278V328');
+  h+=box(850,330,130,50,'Registro','REAL / no REAL');
+  h+=arr('M705 288V328')+T(713,312,'no · sin reparaciones',{k:'t2',s:11});
+  h+=box(640,330,130,50,'Presupuesto','agotado');
+  h+=arr('M770 355H848');
+  /* condiciones */
+  h+=T(20,226,'baseline',{w:600,s:13})+T(20,244,'0 reparaciones: la ejecución termina',{k:'t2',s:12})+T(20,261,'en el primer intento.',{k:'t2',s:12});
+  h+=T(20,296,'repair',{w:600,s:13})+T(20,314,'hasta 3 reparaciones, es decir, 4',{k:'t2',s:12})+T(20,331,'intentos con el bucle violeta.',{k:'t2',s:12});
+  h+=S('line',{x1:20,x2:300,y1:208,y2:208,stroke:'var(--line)'});
+  document.getElementById('flow').innerHTML=h;
+})();
+})();
+</script>
