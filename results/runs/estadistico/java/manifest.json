@@ -1,0 +1,45 @@
+{
+  "block": "estadistico",
+  "language": "java",
+  "prompt_version": "vera01-p1",
+  "sessions": [
+    {
+      "started_at": "2026-11-22T15:54:05.056109+00:00",
+      "harness_commit": "f537c3539e0ea70d4630b530f74f6882534b5264",
+      "planned": 2400,
+      "env": {
+        "python": "3.12.10",
+        "java": "openjdk version \"11.0.23\" 2024-04-16",
+        "maven": "3.9.9",
+        "commons_lang_commit": "89bb30909bf873d75f5e06d144f9b2e72d74c076",
+        "ollama_version": "0.40.13",
+        "gpu": "NVIDIA GeForce RTX 3060 Ti, 8192 MiB, 610.88",
+        "models": {
+          "llama3.1:8b": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+          "qwen2.5-coder:7b": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+          "qwen3:8b": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+          "gemma4:e4b": "dc35e8d9c6061baa6f0fa870975ab6932e2542b579b13ea0f199fa4bb7300c9c"
+        }
+      }
+    },
+    {
+      "started_at": "2026-11-22T20:43:15.214125+00:00",
+      "harness_commit": "618687ba9fcc58a0c19c3179728ca257cd9071da",
+      "planned": 2400,
+      "env": {
+        "python": "3.12.10",
+        "java": "openjdk version \"11.0.23\" 2024-04-16",
+        "maven": "3.9.9",
+        "commons_lang_commit": "89bb30909bf873d75f5e06d144f9b2e72d74c076",
+        "ollama_version": "0.40.13",
+        "gpu": "NVIDIA GeForce RTX 3060 Ti, 8192 MiB, 610.88",
+        "models": {
+          "llama3.1:8b": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+          "qwen2.5-coder:7b": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+          "qwen3:8b": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+          "gemma4:e4b": "dc35e8d9c6061baa6f0fa870975ab6932e2542b579b13ea0f199fa4bb7300c9c"
+        }
+      }
+    }
+  ]
+}
