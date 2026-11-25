@@ -56,6 +56,7 @@ th{font-weight:600;color:var(--ink2);font-size:12px}
 .notes li::before{content:"";position:absolute;left:0;top:.7em;width:7px;height:2px;background:var(--muted)}
 .notes b{color:var(--ink);font-weight:600}
 footer{font-size:12px;color:var(--muted)}
+.p2 td:not(:first-child){white-space:normal}.bar{display:inline-block;vertical-align:middle;width:56px;height:8px;background:var(--grid);border-radius:2px;margin:0 6px 0 2px;overflow:hidden}.bar i{display:block;height:100%}
 </style>
 
 <main>
@@ -117,16 +118,43 @@ footer{font-size:12px;color:var(--muted)}
   </figure>
 </section>
 
+<section aria-labelledby="h-p2">
+  <h2 id="h-p2">Con el import dado (prompt p2)</h2>
+  <p class="lede">Se repitió el bloque entero, 3 000 ejecuciones más, cambiando una sola línea del prompt: ahora indica el import completo de la clase. La mejora del bucle se reduce, pero sigue siendo positiva en cuatro de los cinco modelos.</p>
+  <figure>
+    <div class="legend"><span><i class="sw" style="background:var(--s2)"></i>p1, sin el paquete</span><span><i class="sw" style="background:var(--s1)"></i>p2, con el import</span><span>tasa REAL, 300 ejecuciones por celda</span></div>
+    <div class="scroll"><table class="p2">
+      <tr><th>Modelo</th><th>Baseline, p1 → p2</th><th>Repair, p1 → p2</th><th>Mejora (pp), p1 → p2</th></tr>
+<tr><td>gemma4:e4b</td><td><span class="bar"><i style="width:6%;background:var(--s2)"></i></span><b>6 %</b> → <span class="bar"><i style="width:57%;background:var(--s1)"></i></span><b>57 %</b></td><td><span class="bar"><i style="width:18%;background:var(--s2)"></i></span><b>18 %</b> → <span class="bar"><i style="width:79%;background:var(--s1)"></i></span><b>79 %</b></td><td>+12 → +21</td></tr>
+<tr><td>llama3.1:8b</td><td><span class="bar"><i style="width:8%;background:var(--s2)"></i></span><b>8 %</b> → <span class="bar"><i style="width:51%;background:var(--s1)"></i></span><b>51 %</b></td><td><span class="bar"><i style="width:53%;background:var(--s2)"></i></span><b>53 %</b> → <span class="bar"><i style="width:63%;background:var(--s1)"></i></span><b>63 %</b></td><td>+45 → +12</td></tr>
+<tr><td>ornith-1.5:9b</td><td><span class="bar"><i style="width:25%;background:var(--s2)"></i></span><b>25 %</b> → <span class="bar"><i style="width:43%;background:var(--s1)"></i></span><b>43 %</b></td><td><span class="bar"><i style="width:64%;background:var(--s2)"></i></span><b>64 %</b> → <span class="bar"><i style="width:78%;background:var(--s1)"></i></span><b>78 %</b></td><td>+39 → +35</td></tr>
+<tr><td>qwen2.5-coder:7b</td><td><span class="bar"><i style="width:32%;background:var(--s2)"></i></span><b>32 %</b> → <span class="bar"><i style="width:55%;background:var(--s1)"></i></span><b>55 %</b></td><td><span class="bar"><i style="width:59%;background:var(--s2)"></i></span><b>59 %</b> → <span class="bar"><i style="width:70%;background:var(--s1)"></i></span><b>70 %</b></td><td>+26 → +15</td></tr>
+<tr><td>qwen3:8b</td><td><span class="bar"><i style="width:0%;background:var(--s2)"></i></span><b>0 %</b> → <span class="bar"><i style="width:34%;background:var(--s1)"></i></span><b>34 %</b></td><td><span class="bar"><i style="width:75%;background:var(--s2)"></i></span><b>75 %</b> → <span class="bar"><i style="width:42%;background:var(--s1)"></i></span><b>42 %</b></td><td>+75 → +8</td></tr>
+    </table></div>
+    <figcaption>Al dar el import sube el baseline de los cinco modelos, de +18 a +51 puntos. La mejora del bucle baja en llama3.1 (de +45 a +12), qwen3 (de +75 a +8), qwen2.5-coder y ornith, y sube en gemma4. Excluye el cero en cuatro modelos, todos salvo qwen3, así que se cumple el criterio prerregistrado de al menos tres.</figcaption>
+    <details>
+      <summary>Rescates cuyo primer fallo fue de resolución de símbolos</summary>
+      <div class="scroll"><table><tr><th>Modelo</th><th>p1</th><th>p2</th></tr>
+<tr><td>gemma4:e4b</td><td>71 %</td><td>15 %</td></tr>
+<tr><td>llama3.1:8b</td><td>84 %</td><td>7 %</td></tr>
+<tr><td>ornith-1.5:9b</td><td>36 %</td><td>13 %</td></tr>
+<tr><td>qwen2.5-coder:7b</td><td>64 %</td><td>3 %</td></tr>
+<tr><td>qwen3:8b</td><td>97 %</td><td>9 %</td></tr>
+      </table></div>
+    </details>
+  </figure>
+</section>
+
 <section aria-labelledby="h-lim">
   <h2 id="h-lim">Antes de citar estas cifras</h2>
   <ul class="notes">
-    <li><b>El 0 % de qwen3 en baseline pide una revisión.</b> Falla casi siempre el primer intento (1 de 300 en repair) y se arregla en el segundo. Parece un fallo sistemático de la primera respuesta, no falta de capacidad, y conviene mirar sus diagnósticos antes de interpretarlo.</li>
+    <li><b>El 0 % de qwen3 en baseline venía del prompt.</b> Con p1 fallaba casi siempre la importación. Con p2 compila, pero el 38 % de sus ejecuciones son tests vacíos: su tasa del runner es 53 % → 69 % y la REAL, 34 % → 42 %.</li>
     <li><b>REAL es una auditoría estática.</b> Comprueba que el test tiene <code>@Test</code> y aserciones y llama al método focal. No ejecuta mutantes, así que una aserción vacua puede contar como REAL.</li>
     <li><b>Los intervalos son optimistas.</b> Tratan las ejecuciones como independientes, pero comparten método focal, modelo y comando de validación.</li>
     <li><b>Una máquina, un contexto.</b> Un solo equipo, <code>num_ctx</code> 8 192, prompts reconstruidos de la tesis, y tres instancias de Ollama (puertos 11434, 11435 y 11431) repartidas entre los modelos. Ornith 1.5 9B se añadió después con el mismo prompt.</li>
   </ul>
 </section>
-<footer>Datos: results/runs/estadistico/java y results/runs/ampliacion/java (3 000 registros), informe generado con <code>python -m vera report --block estadistico --with ampliacion --language java</code>. Versión del prompt vera01-p1.</footer>
+<footer>Datos: results/runs/estadistico/java y results/runs/ampliacion/java (3 000 registros), informe generado con <code>python -m vera report --block estadistico --with ampliacion --language java</code>. Versión del prompt vera01-p1; la sección p2 usa results/runs/estadistico-p2/java (vera01-p2) y docs/comparativa-p1-p2.md.</footer>
 </main>
 <div class="tip" id="tip" role="tooltip"></div>
 

@@ -179,6 +179,15 @@ Es un tope y no una medida exacta de lo atribuible a la importación: `cannot fi
 
 Formulación prudente para citar estos resultados: *en esta réplica, el bucle validar-reparar mejora la tasa de tests con aserciones reales en los cinco modelos, si bien buena parte de la mejora procede de corregir errores de resolución de símbolos derivados de un prompt incompleto; su efecto sobre la calidad de los tests, aislado de ese factor, se mide en el bloque con el prompt `vera01-p2`, cuyo protocolo se fijó de antemano en [prerregistro-vera01-p2.md](prerregistro-vera01-p2.md).*
 
+### Resultado del bloque con el prompt p2 (import dado)
+
+Cabe señalar que el bloque `estadistico-p2` (3.000 ejecuciones, ninguna inválida) se lanzó con el protocolo fijado de antemano en [prerregistro-vera01-p2.md](prerregistro-vera01-p2.md); la comparación completa, con intervalos, figura en [comparativa-p1-p2.md](comparativa-p1-p2.md) y el informe en `results/runs/estadistico-p2/java/informe.md`.
+
+- Al dar el import, el baseline REAL sube en los cinco modelos (de +18 a +51 puntos) y los rescates cuyo primer fallo fue de símbolos caen del 36-97 % al 3-15 %.
+- La mejora del bucle (repair menos baseline) baja en cuatro modelos: llama3.1:8b de +45 a +12, qwen3:8b de +75 a +8, qwen2.5-coder:7b de +26 a +15 y ornith-1.5:9b de +39 a +35; sube en gemma4:e4b, de +12 a +21. Excluye el cero en cuatro de los cinco modelos (todos salvo qwen3:8b), de modo que se cumple el criterio prerregistrado (al menos tres).
+- qwen3:8b merece mención aparte: su tasa del runner (53 % → 69 %) y su tasa REAL (34 % → 42 %) divergen porque el 38 % de sus ejecuciones son vacías.
+- Formulación prudente: *con el paquete de la clase indicado, el bucle validar-reparar conserva un efecto positivo de entre +8 y +35 puntos en cuatro de cinco modelos; el efecto de p1 estaba muy inflado por la importación.*
+
 ### Criterios de éxito (sección 11 de la especificación)
 
 - Mejora por reparación en al menos tres de los cuatro modelos de Java (criterio: diferencia positiva con intervalo de confianza del 95 % que excluye el cero): **cumplido**, y en los cinco modelos (los cuatro del bloque original y Ornith); los intervalos son optimistas por la falta de independencia indicada en los límites.
