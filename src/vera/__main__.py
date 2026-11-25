@@ -8,7 +8,7 @@ from pathlib import Path
 from vera.blocks import BLOCKS, REPO_ROOT
 from vera.types import RunRecord
 
-ADAPTER_LANGUAGES = ("java",)
+ADAPTER_LANGUAGES = ("java", "python", "node")
 
 
 def _java_adapter():
@@ -16,6 +16,22 @@ def _java_adapter():
     from vera.envinfo import COMMONS_LANG_DIR, M2_DIR, MAVEN_BIN
 
     return JavaMavenAdapter(repo=Path(COMMONS_LANG_DIR), mvn=Path(MAVEN_BIN), m2=Path(M2_DIR))
+
+
+def _python_adapter():
+    from vera.adapters.python_pytest import PythonPytestAdapter
+
+    return PythonPytestAdapter(project_dir=Path("E:/vera-data/pydash/src"), python=Path(sys.executable))
+
+
+def _node_adapter():
+    from vera.adapters.node_test import NodeTestAdapter
+
+    return NodeTestAdapter(project_dir=Path("E:/vera-data/validatorjs/lib"),
+                           node=Path("C:/Program Files/nodejs/node.exe"))
+
+
+_ADAPTERS = {"java": _java_adapter, "python": _python_adapter, "node": _node_adapter}
 
 
 def _report_progress(index: int, total: int, record: RunRecord) -> None:
@@ -83,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         summary = runner.run_block(
             block, args.language, results_root=REPO_ROOT / "results",
-            engines=engines, adapters={"java": _java_adapter()},
+            engines=engines, adapters={args.language: _ADAPTERS[args.language]()},
             limit=args.limit, dry_run=args.dry_run, skip_infra_failed=args.skip_infra_failed,
             on_record=_report_progress,
         )
