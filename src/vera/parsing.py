@@ -13,6 +13,12 @@ ParseError = Literal["invalid_json", "missing_code", "empty_code"]
 _STR = r'"(?:[^"\\\n]|\\.)*"'
 _CONCAT = re.compile(r"(" + _STR + r")\s*\+\s*(" + _STR + r")")
 
+# Sustitutos UTF-16 sueltos: json.loads los produce cuando el modelo escribe un escape
+# de cadena de JS/Java/Python (p. ej. una barra y ud800) sin duplicar la barra. No son
+# codificables en UTF-8, de modo que se devuelven a su escape textual, que es lo que
+# el modelo quiso escribir en el fuente y que los tres lenguajes interpretan igual.
+_LONE_SURROGATE = re.compile("[" + chr(0xD800) + "-" + chr(0xDFFF) + "]")
+
 
 @dataclass(frozen=True)
 class ParseResult:
@@ -32,6 +38,10 @@ def _join_literals(text: str) -> str:
     return text
 
 
+def _escape_lone_surrogates(text: str) -> str:
+    return _LONE_SURROGATE.sub(lambda m: "\\" + "u%04x" % ord(m.group()), text)
+
+
 def _load(text: str) -> object:
     try:
         return json.loads(text)
@@ -47,10 +57,10 @@ def parse_model_output(text: str) -> ParseResult:
     if not isinstance(data, dict):
         return ParseResult(None, None, "invalid_json")
     note = data.get("note")
-    note = note if isinstance(note, str) else None
+    note = _escape_lone_surrogates(note) if isinstance(note, str) else None
     if "code" not in data:
         return ParseResult(None, note, "missing_code")
     code = data["code"]
     if not isinstance(code, str) or not code.strip():
         return ParseResult(None, note, "empty_code")
-    return ParseResult(code, note, None)
+    return ParseResult(_escape_lone_surrogates(code), note, None)

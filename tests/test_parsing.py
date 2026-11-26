@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from vera.parsing import ParseResult, parse_model_output
@@ -49,3 +51,23 @@ def test_result_is_frozen():
     assert isinstance(res, ParseResult)
     with pytest.raises(Exception):
         res.code = "y"
+
+
+SURROGATE = chr(0xD800)
+BS = "\\"
+
+
+def test_lone_surrogate_escape_returns_to_source_text():
+    # El modelo escribe la barra sin duplicar: json.loads da un sustituto suelto.
+    raw = json.dumps({"code": f"const s = '{SURROGATE}';", "note": SURROGATE})
+    res = parse_model_output(raw)
+    assert res.error is None
+    assert res.code == "const s = '" + BS + "ud800';"
+    assert res.note == BS + "ud800"
+    res.code.encode("utf-8")
+
+
+def test_valid_surrogate_pair_is_kept_as_one_character():
+    emoji = chr(0x1F600)
+    res = parse_model_output(json.dumps({"code": f"x = '{emoji}'"}))
+    assert res.code == f"x = '{emoji}'"
