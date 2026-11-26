@@ -10,6 +10,11 @@ from vera.engines.base import ChatOptions, ChatResult, EngineError
 
 _NS = 1_000_000_000
 
+# Ollama aborta con HTTP 500 cuando el modelo entra en bucle repitiendo tokens.
+# Dícese de una salida degenerada del propio modelo, no de un fallo del servidor;
+# se trata, por ende, igual que una salida truncada por num_predict.
+_REPEAT_ABORT = "token repeat limit reached"
+
 
 class OllamaEngine:
     def __init__(self, base_url: str, timeout_s: float = 300) -> None:
@@ -66,7 +71,11 @@ class OllamaEngine:
         except urllib.error.HTTPError as exc:
             if exc.code == 404:
                 raise EngineError("model_missing", f"modelo no disponible: {model}") from exc
-            raise EngineError("server", f"HTTP {exc.code}") from exc
+            detail = _error_detail(exc)
+            if exc.code == 500 and _REPEAT_ABORT in detail:
+                return {"message": {"content": ""}, "done_reason": "length"}
+            suffix = f": {detail}" if detail else ""
+            raise EngineError("server", f"HTTP {exc.code}{suffix}") from exc
         except (socket.timeout, TimeoutError) as exc:
             raise EngineError("timeout", str(exc)) from exc
         except urllib.error.URLError as exc:
@@ -78,3 +87,18 @@ class OllamaEngine:
         except ValueError as exc:
             raise EngineError("server", f"respuesta no válida: {exc}") from exc
         return body
+
+
+def _error_detail(exc: urllib.error.HTTPError) -> str:
+    """Devuelve el campo error del cuerpo, o el cuerpo en crudo, sin propagar fallos de lectura."""
+    try:
+        raw = exc.read().decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001 - el detalle es accesorio
+        return ""
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return raw.strip()[:500]
+    if isinstance(parsed, dict) and isinstance(parsed.get("error"), str):
+        return parsed["error"]
+    return raw.strip()[:500]

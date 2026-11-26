@@ -75,6 +75,23 @@ def test_http_500_raises_server_error(server):
     assert e.value.kind == "server"
 
 
+def test_http_500_message_keeps_server_error_body(server):
+    server["status"] = 500
+    server["reply"] = {"error": "llama runner process has terminated"}
+    with pytest.raises(EngineError) as e:
+        OllamaEngine(server["url"]).chat(MSGS, model="m", options=OPTS, json_schema=None)
+    assert e.value.kind == "server"
+    assert "llama runner process has terminated" in str(e.value)
+
+
+def test_token_repeat_abort_is_a_truncated_model_output(server):
+    server["status"] = 500
+    server["reply"] = {"error": "prediction aborted, token repeat limit reached"}
+    r = OllamaEngine(server["url"]).chat(MSGS, model="m", options=OPTS, json_schema=None)
+    assert r.truncated is True
+    assert r.text == ""
+
+
 def test_connection_refused_raises_connection_error():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
