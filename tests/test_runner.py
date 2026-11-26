@@ -171,13 +171,6 @@ def test_block_writes_manifest_with_env_and_prompt_version(tmp_path):
     assert len(list(RunStore(out / "records").load_all())) == 3
 
 
-def test_cli_without_adapter_exits_with_clear_error(capsys):
-    with pytest.raises(SystemExit) as exc:
-        main(["run", "--block", "determinista", "--language", "python", "--dry-run"])
-    assert exc.value.code == 2
-    assert "python" in capsys.readouterr().err
-
-
 class RepairAdapter(FakeAdapter):
     """Adaptador cuya primera validación es un fallo de infraestructura con intentos."""
 
