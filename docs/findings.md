@@ -138,7 +138,7 @@ Con el mismo prompt, parámetros y tareas se añade el bloque `ampliacion` (600 
 | `qwen2.5-coder:7b` | 4/10 → 6/10 | 40 % → 85 % |
 | `llama3.1:8b` | 1/10 → 3/10 | 30 % → 85 % |
 
-**Java, bloque estadístico:** completo, véase la sección siguiente. **Python y Node:** pendientes. Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio agregado 3,74 con el criterio ingenuo, que la propia tesis rebaja a 2,60 al retirar la contribución inflada de Llama 3.1 (verificado en el PDF); 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
+**Java, bloque estadístico:** completo, véase la sección siguiente. **Python y Node:** completos, véase «Resultados del bloque estadístico de Python y Node». Cifras de la tesis para el bloque estadístico, verificadas en el PDF (porcentajes de 300 ejecuciones por celda; ingenua = compila y pasa, sustantiva = auditada): Llama 3.1 17,7 → 54,7 (sustantiva 17,7 → 22,3); Qwen 2.5-Coder 25,7 → 46,3 (25,0 → 45,0); Qwen3 42,7 → 52,3 (42,7 → 52,0); Gemma 4 31,3 → 66,7 (31,3 → 65,3); odds ratio agregado 3,74 con el criterio ingenuo, que la propia tesis rebaja a 2,60 al retirar la contribución inflada de Llama 3.1 (verificado en el PDF); 10,7 % de éxitos vacíos sobre 1.012 aceptados; el múltiplo de tokens publicado es de aproximadamente 3 a 6. Python y Node no tienen cifra de la tesis y no se inventa ninguna.
 
 ### Resultados del bloque estadístico ampliado (Java)
 
@@ -187,6 +187,27 @@ Cabe señalar que el bloque `estadistico-p2` (3.000 ejecuciones, ninguna inváli
 - La mejora del bucle (repair menos baseline) baja en cuatro modelos: llama3.1:8b de +45 a +12, qwen3:8b de +75 a +8, qwen2.5-coder:7b de +26 a +15 y ornith-1.5:9b de +39 a +35; sube en gemma4:e4b, de +12 a +21. Excluye el cero en cuatro de los cinco modelos (todos salvo qwen3:8b), de modo que se cumple el criterio prerregistrado (al menos tres).
 - qwen3:8b merece mención aparte: su tasa del runner (53 % → 69 %) y su tasa REAL (34 % → 42 %) divergen porque el 38 % de sus ejecuciones son vacías.
 - Formulación prudente: *con el paquete de la clase indicado, el bucle validar-reparar conserva un efecto positivo de entre +8 y +35 puntos en cuatro de cinco modelos; el efecto de p1 estaba muy inflado por la importación.*
+
+### Resultados del bloque estadístico de Python y Node
+
+Cabe señalar que ambos bloques (2.400 ejecuciones cada uno, prompt `vera01-p1`, mismos cuatro modelos y parámetros que en Java) se completaron el 25 de noviembre de 2026; los informes figuran en [results/runs/estadistico/python/informe.md](../results/runs/estadistico/python/informe.md) y [results/runs/estadistico/node/informe.md](../results/runs/estadistico/node/informe.md). La tesis no publica cifras para estos lenguajes, de modo que no hay comparación posible. Tasas REAL de unas 300 ejecuciones por celda, con la mejora de reparación sobre baseline y su intervalo del 95 % (Newcombe):
+
+| Lenguaje | Modelo | Baseline | Repair | Mejora (IC 95 %) | Vacíos | Múltiplo de tokens |
+|---|---|---:|---:|---|---:|---:|
+| Python | `gemma4:e4b` | 28 % | 53 % | +25 [+17, +32] | 0 % | 5,20 |
+| Python | `llama3.1:8b` | 32 % | 53 % | +21 [+13, +29] | 0 % | 4,75 |
+| Python | `qwen2.5-coder:7b` | 55 % | 68 % | +14 [+6, +21] | 2 % | 3,40 |
+| Python | `qwen3:8b` | 50 % | 57 % | +7 [−1, +15] | 0 % | 3,64 |
+| Node | `gemma4:e4b` | 30 % | 58 % | +28 [+20, +35] | 10 % | 4,61 |
+| Node | `llama3.1:8b` | 35 % | 47 % | +12 [+4, +20] | 0 % | 4,90 |
+| Node | `qwen2.5-coder:7b` | 17 % | 29 % | +12 [+5, +18] | 3 % | 5,85 |
+| Node | `qwen3:8b` | 50 % | 65 % | +15 [+7, +23] | 0 % | 3,61 |
+
+- La reparación mejora en siete de las ocho celdas con un intervalo que excluye el cero; la excepción es `qwen3:8b` en Python, cuyo intervalo contiene el cero. Los intervalos son optimistas por la falta de independencia indicada en los límites.
+- Las mejoras (de +7 a +28 puntos) quedan muy por debajo de las de Java con p1 y en el orden de las de Java con p2, lo cual es coherente con que en Python y Node el prompt no adolece del problema de importación que inflaba el efecto en Java.
+- `gemma4:e4b` en Node presenta un 10 % de éxitos vacíos, la proporción más alta de toda la réplica; su tasa del runner con reparación (65 %) supera en siete puntos a la REAL (58 %).
+
+Desviación de procedimiento (26 de noviembre de 2026). El bloque de Node terminó con 44 ejecuciones inválidas, de las que 36 se debían a un defecto del arnés y no del modelo: cuando el modelo escribía en su JSON un escape de cadena de JavaScript sin duplicar la barra, `json.loads` producía un sustituto UTF-16 suelto que no podía escribirse en UTF-8, y la ejecución se contaba como fallo de infraestructura, con pérdida de sus intentos. La exclusión no era aleatoria: 35 de las 36 correspondían a la tarea `node-isSurrogatePair` (31 de ellas de `gemma4:e4b`), de modo que sesgaba las tasas de esa tarea y de ese modelo. Se corrigió el analizador (commit `ccd41b3`), que ahora devuelve cada sustituto suelto a su escape textual, lo que el modelo quiso escribir; se guardó copia de los registros inválidos en `records/_sustituidas/` (fuera de git) y se repitieron únicamente las ejecuciones inválidas, conforme al diseño del ejecutor, sin tocar las 2.356 válidas. De las 44, 40 salieron válidas; quedan inválidas 4 en Node y 1 en Python, todas por `HTTP 500` del servidor de Ollama que se reproduce al repetir con la misma semilla. Tras la corrección cambian sobre todo las celdas de `gemma4:e4b` en Node (baseline REAL de 83/284 a 89/300 y repair de 162/284 a 173/300), sin alterar ninguna conclusión. El incidente análogo de la ampliación de Java (`java-StringUtils-length`) tuvo, con toda probabilidad, la misma causa.
 
 ### Criterios de éxito (sección 11 de la especificación)
 
