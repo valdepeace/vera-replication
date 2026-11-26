@@ -1,8 +1,8 @@
-ejecuciones=2400 invalidas=4 tmp_sin_cerrar=0
+ejecuciones=2400 invalidas=0 tmp_sin_cerrar=0
 
 # Informe del bloque estadistico
 
-Ejecuciones: 2400 (válidas: 2396; planificadas: 2400)
+Ejecuciones: 2400 (válidas: 2400; planificadas: 2400)
 
 ## Condiciones declaradas
 
@@ -23,9 +23,9 @@ Ejecuciones: 2400 (válidas: 2396; planificadas: 2400)
 |---|---|---|---|
 | gemma4:e4b | baseline | 96/300 (32%) | 89/300 (30%) |
 | gemma4:e4b | repair | 194/300 (65%) | 173/300 (58%) |
-| llama3.1:8b | baseline | 104/299 (35%) | 104/299 (35%) |
-| llama3.1:8b | repair | 141/299 (47%) | 140/299 (47%) |
-| qwen2.5-coder:7b | baseline | 52/298 (17%) | 52/298 (17%) |
+| llama3.1:8b | baseline | 105/300 (35%) | 105/300 (35%) |
+| llama3.1:8b | repair | 142/300 (47%) | 141/300 (47%) |
+| qwen2.5-coder:7b | baseline | 53/300 (18%) | 53/300 (18%) |
 | qwen2.5-coder:7b | repair | 92/300 (31%) | 87/300 (29%) |
 | qwen3:8b | baseline | 149/300 (50%) | 149/300 (50%) |
 | qwen3:8b | repair | 195/300 (65%) | 195/300 (65%) |
@@ -33,11 +33,11 @@ Ejecuciones: 2400 (válidas: 2396; planificadas: 2400)
 | Modelo | Mejora (REAL, IC 95 % Newcombe) | Vacíos | Múltiplo de tokens | Inválidas |
 |---|---|---|---|---|
 | gemma4:e4b | sí (+0.28 [+0.20, +0.35]) | 10% | 4.61 | 0 |
-| llama3.1:8b | sí (+0.12 [+0.04, +0.20]) | 0% | 4.90 | 2 |
-| qwen2.5-coder:7b | sí (+0.12 [+0.05, +0.18]) | 3% | 5.85 | 2 |
+| llama3.1:8b | sí (+0.12 [+0.04, +0.20]) | 0% | 4.89 | 0 |
+| qwen2.5-coder:7b | sí (+0.11 [+0.05, +0.18]) | 3% | 5.87 | 0 |
 | qwen3:8b | sí (+0.15 [+0.07, +0.23]) | 0% | 3.61 | 0 |
 
-Ejecuciones inválidas (excluidas de toda tasa): 4
+Ejecuciones inválidas (excluidas de toda tasa): 0
 
 ## Comparación con la tesis
 
@@ -51,4 +51,3 @@ No hay ejecuciones de Java: no hay cifra comparable.
   - Node: el análisis es textual; no cierra condiciones falsas en tiempo de ejecución, `.then(ok, err)` que traga, helpers importados ni alias dinámicos; véase "Known limits of the static Node audit" de docs/entorno-vera01.md.
 - **No independencia.** Los intervalos de Newcombe tratan las ejecuciones como independientes, pero comparten método focal (mismos métodos en cada celda y repeticiones del mismo método), modelo y comando de validación, y las condiciones se emparejan por método. Los intervalos son por ello optimistas (más estrechos de lo debido); en el bloque determinista las repeticiones, además, no son independientes.
 - Una sola máquina, un solo contexto (`num_ctx` 8192), prompts reconstruidos, sin mutation score. Las ejecuciones con `valid=False` quedan fuera de toda tasa.
-

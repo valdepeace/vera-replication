@@ -190,17 +190,17 @@ Cabe señalar que el bloque `estadistico-p2` (3.000 ejecuciones, ninguna inváli
 
 ### Resultados del bloque estadístico de Python y Node
 
-Cabe señalar que ambos bloques (2.400 ejecuciones cada uno, prompt `vera01-p1`, mismos cuatro modelos y parámetros que en Java) se completaron el 25 de noviembre de 2026; los informes figuran en [results/runs/estadistico/python/informe.md](../results/runs/estadistico/python/informe.md) y [results/runs/estadistico/node/informe.md](../results/runs/estadistico/node/informe.md). La tesis no publica cifras para estos lenguajes, de modo que no hay comparación posible. Tasas REAL de unas 300 ejecuciones por celda, con la mejora de reparación sobre baseline y su intervalo del 95 % (Newcombe):
+Cabe señalar que ambos bloques (2.400 ejecuciones cada uno, prompt `vera01-p1`, mismos cuatro modelos y parámetros que en Java) se completaron el 25 de noviembre de 2026; los informes figuran en [results/runs/estadistico/python/informe.md](../results/runs/estadistico/python/informe.md) y [results/runs/estadistico/node/informe.md](../results/runs/estadistico/node/informe.md). La tesis no publica cifras para estos lenguajes, de modo que no hay comparación posible. Tasas REAL de 300 ejecuciones por celda, con la mejora de reparación sobre baseline y su intervalo del 95 % (Newcombe):
 
 | Lenguaje | Modelo | Baseline | Repair | Mejora (IC 95 %) | Vacíos | Múltiplo de tokens |
 |---|---|---:|---:|---|---:|---:|
 | Python | `gemma4:e4b` | 28 % | 53 % | +25 [+17, +32] | 0 % | 5,20 |
 | Python | `llama3.1:8b` | 32 % | 53 % | +21 [+13, +29] | 0 % | 4,75 |
-| Python | `qwen2.5-coder:7b` | 55 % | 68 % | +14 [+6, +21] | 2 % | 3,40 |
+| Python | `qwen2.5-coder:7b` | 55 % | 68 % | +13 [+6, +21] | 2 % | 3,41 |
 | Python | `qwen3:8b` | 50 % | 57 % | +7 [−1, +15] | 0 % | 3,64 |
 | Node | `gemma4:e4b` | 30 % | 58 % | +28 [+20, +35] | 10 % | 4,61 |
-| Node | `llama3.1:8b` | 35 % | 47 % | +12 [+4, +20] | 0 % | 4,90 |
-| Node | `qwen2.5-coder:7b` | 17 % | 29 % | +12 [+5, +18] | 3 % | 5,85 |
+| Node | `llama3.1:8b` | 35 % | 47 % | +12 [+4, +20] | 0 % | 4,89 |
+| Node | `qwen2.5-coder:7b` | 18 % | 29 % | +11 [+5, +18] | 3 % | 5,87 |
 | Node | `qwen3:8b` | 50 % | 65 % | +15 [+7, +23] | 0 % | 3,61 |
 
 - La reparación mejora en siete de las ocho celdas con un intervalo que excluye el cero; la excepción es `qwen3:8b` en Python, cuyo intervalo contiene el cero. Los intervalos son optimistas por la falta de independencia indicada en los límites.
@@ -208,6 +208,8 @@ Cabe señalar que ambos bloques (2.400 ejecuciones cada uno, prompt `vera01-p1`,
 - `gemma4:e4b` en Node presenta un 10 % de éxitos vacíos, la proporción más alta de toda la réplica; su tasa del runner con reparación (65 %) supera en siete puntos a la REAL (58 %).
 
 Desviación de procedimiento (26 de noviembre de 2026). El bloque de Node terminó con 44 ejecuciones inválidas, de las que 36 se debían a un defecto del arnés y no del modelo: cuando el modelo escribía en su JSON un escape de cadena de JavaScript sin duplicar la barra, `json.loads` producía un sustituto UTF-16 suelto que no podía escribirse en UTF-8, y la ejecución se contaba como fallo de infraestructura, con pérdida de sus intentos. La exclusión no era aleatoria: 35 de las 36 correspondían a la tarea `node-isSurrogatePair` (31 de ellas de `gemma4:e4b`), de modo que sesgaba las tasas de esa tarea y de ese modelo. Se corrigió el analizador (commit `ccd41b3`), que ahora devuelve cada sustituto suelto a su escape textual, lo que el modelo quiso escribir; se guardó copia de los registros inválidos en `records/_sustituidas/` (fuera de git) y se repitieron únicamente las ejecuciones inválidas, conforme al diseño del ejecutor, sin tocar las 2.356 válidas. De las 44, 40 salieron válidas; quedan inválidas 4 en Node y 1 en Python, todas por `HTTP 500` del servidor de Ollama que se reproduce al repetir con la misma semilla. Tras la corrección cambian sobre todo las celdas de `gemma4:e4b` en Node (baseline REAL de 83/284 a 89/300 y repair de 162/284 a 173/300), sin alterar ninguna conclusión. El incidente análogo de la ampliación de Java (`java-StringUtils-length`) tuvo, con toda probabilidad, la misma causa.
+
+Segunda desviación de procedimiento (26 de noviembre de 2026). Ciertamente, las cinco inválidas restantes tampoco eran fallos de infraestructura. Reproducida a mano la primera llamada de cada una, el cuerpo del `HTTP 500`, que el motor descartaba, resultó ser `prediction aborted, token repeat limit reached`: Ollama interrumpe la generación cuando el modelo entra en bucle repitiendo tokens. Dícese, pues, de una salida degenerada del propio modelo, equiparable a la que agota `num_predict`, y excluirla sesgaba las tasas a favor del éxito. El aborto tampoco es determinista: en la reproducción manual, dos de las cinco llamadas terminaron con normalidad. Se modificó el motor (`src/vera/engines/ollama.py`) para que ese aborto concreto cuente como salida truncada y vacía, de modo que en baseline la ejecución fracasa y en reparación el modelo recibe el diagnóstico de formato, como con cualquier truncamiento; cualquier otro `HTTP 500` sigue siendo fallo de infraestructura y ahora conserva en el mensaje el cuerpo del error. Se guardó copia de las cinco en `records/_sustituidas-500/` (fuera de git) y se repitieron solo esas, sin tocar las 4.795 válidas. Las cinco salieron válidas, de modo que ambos bloques quedan completos con 2.400 de 2.400. Tres fueron aceptadas como REAL en el primer intento, sin bucle. En las otras dos el aborto volvió a producirse en la primera llamada: `node-isBoolean` en baseline (agota el presupuesto) y `python-strings-ends_with` en reparación (tres reparaciones válidas que no pasan la validación). Las cifras apenas se mueven (Node: `llama3.1:8b` baseline 105/300 y repair 141/300; `qwen2.5-coder:7b` baseline 53/300; Python: `qwen2.5-coder:7b` repair 204/300) y ninguna conclusión cambia. Una salvedad: las ejecuciones abortadas no registran los tokens que llegaron a generarse, de modo que el múltiplo de tokens de esas dos queda ligeramente subestimado.
 
 ### Criterios de éxito (sección 11 de la especificación)
 

@@ -59,6 +59,25 @@
           "gemma4:e4b": null
         }
       }
+    },
+    {
+      "started_at": "2026-11-26T11:34:29.613515+00:00",
+      "harness_commit": "d271557f96bff349795f197e095896be52435151",
+      "planned": 2400,
+      "env": {
+        "python": "3.12.10",
+        "java": "openjdk version \"11.0.23\" 2024-04-16",
+        "maven": "3.9.9",
+        "commons_lang_commit": "89bb30909bf873d75f5e06d144f9b2e72d74c076",
+        "ollama_version": "0.40.13",
+        "gpu": "NVIDIA GeForce RTX 3060 Ti, 8192 MiB, 610.88",
+        "models": {
+          "llama3.1:8b": null,
+          "qwen2.5-coder:7b": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+          "qwen3:8b": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+          "gemma4:e4b": null
+        }
+      }
     }
   ]
 }

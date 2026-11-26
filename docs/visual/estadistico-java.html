@@ -149,8 +149,8 @@ footer{font-size:12px;color:var(--muted)}
   <h2 id="h-pn">Python y Node con el mismo prompt</h2>
   <p class="lede">El bloque se repitió en Python y en Node, con 2 400 ejecuciones por lenguaje, los cuatro modelos de la tesis y el prompt p1. Aquí no hay problema de import y los baselines arrancan mucho más altos que en Java. El bucle mejora en los cuatro modelos en Node y en tres de cuatro en Python.</p>
   <figure>
-    <div class="legend"><span><i class="dot"></i>baseline</span><span><i class="dot fill"></i>repair</span><span>unas 300 ejecuciones por punto</span></div>
-    <div class="scroll"><svg id="c4" viewBox="0 0 760 520" role="img" aria-label="Tasa de éxito REAL en Python y Node. Python: gemma4 de 28,0 % a 53,0 %, llama3.1 de 32,3 % a 53,3 %, qwen2.5-coder de 54,7 % a 68,2 %, qwen3 de 49,7 % a 56,7 %. Node: gemma4 de 29,7 % a 57,7 %, llama3.1 de 34,8 % a 46,8 %, qwen2.5-coder de 17,4 % a 29,0 %, qwen3 de 49,7 % a 65,0 %."></svg></div>
+    <div class="legend"><span><i class="dot"></i>baseline</span><span><i class="dot fill"></i>repair</span><span>300 ejecuciones por punto</span></div>
+    <div class="scroll"><svg id="c4" viewBox="0 0 760 520" role="img" aria-label="Tasa de éxito REAL en Python y Node. Python: gemma4 de 28,0 % a 53,0 %, llama3.1 de 32,3 % a 53,3 %, qwen2.5-coder de 54,7 % a 68,0 %, qwen3 de 49,7 % a 56,7 %. Node: gemma4 de 29,7 % a 57,7 %, llama3.1 de 35,0 % a 47,0 %, qwen2.5-coder de 17,7 % a 29,0 %, qwen3 de 49,7 % a 65,0 %."></svg></div>
     <figcaption>Tasa de éxito REAL. A la derecha, la mejora en puntos con su IC 95 % (Newcombe). En Python, qwen3:8b se queda en +7 [−1, +15], que pasa por el cero. Las mejoras, de +7 a +28 puntos, se parecen más a las de Java con p2 que a las de p1. La tesis solo publica cifras de Java, así que para estos lenguajes no hay con qué comparar.</figcaption>
     <details>
       <summary>Ver los datos en tabla</summary>
@@ -164,7 +164,7 @@ footer{font-size:12px;color:var(--muted)}
   <ul class="notes">
     <li><b>El 0 % de qwen3 en baseline venía del prompt.</b> Con p1 fallaba casi siempre la importación. Con p2 compila, pero el 38 % de sus ejecuciones son tests vacíos: su tasa del runner es 53 % → 69 % y la REAL, 34 % → 42 %.</li>
     <li><b>REAL es una auditoría estática.</b> Comprueba que el test tiene <code>@Test</code> y aserciones y llama al método focal. No ejecuta mutantes, así que una aserción vacua puede contar como REAL. En Python la auditoría usa <code>ast</code> y en Node es textual, con sus propios casos abiertos.</li>
-    <li><b>Ejecuciones inválidas fuera de las tasas.</b> En Node, 36 ejecuciones de <code>isSurrogatePair</code> se perdieron por un fallo del arnés con los sustitutos UTF-16; se corrigió y se repitieron solo esas. Quedan 4 inválidas en Node y 1 en Python, todas por un HTTP 500 de Ollama que se repite con la misma semilla.</li>
+    <li><b>Python y Node, completos con 2 400 de 2 400.</b> Hubo que repetir algunas ejecuciones. 36 de Node, casi todas de <code>isSurrogatePair</code>, se perdieron por un fallo del arnés con los sustitutos UTF-16. Otras 5 se habían apartado por un HTTP 500 de Ollama, que resultó ser el corte por bucle de tokens repetidos: un fallo del modelo, que ahora cuenta como salida truncada. Se corrigieron los dos fallos y se repitieron solo esas ejecuciones.</li>
     <li><b>gemma4 en Node da tests vacíos.</b> El 10 % de sus ejecuciones pasan sin probar nada, la cifra más alta de toda la réplica. Por eso su tasa del runner en repair (65 %) es mayor que la REAL (58 %).</li>
     <li><b>Los intervalos son optimistas.</b> Tratan las ejecuciones como independientes, pero comparten método focal, modelo y comando de validación.</li>
     <li><b>Una máquina, un contexto.</b> Un solo equipo, <code>num_ctx</code> 8 192, prompts reconstruidos de la tesis, y tres instancias de Ollama (puertos 11434, 11435 y 11431) repartidas entre los modelos. Ornith 1.5 9B se añadió después con el mismo prompt.</li>
@@ -262,12 +262,12 @@ var PN=[
  {l:'Python',rows:[
   {n:'gemma4:e4b',c:'--s4',bk:84,bn:300,rk:159,rn:300,g:25,lo:17,hi:32,vac:0,tok:5.20},
   {n:'llama3.1:8b',c:'--s1',bk:97,bn:300,rk:160,rn:300,g:21,lo:13,hi:29,vac:0,tok:4.75},
-  {n:'qwen2.5-coder:7b',c:'--s2',bk:164,bn:300,rk:204,rn:299,g:14,lo:6,hi:21,vac:2,tok:3.40},
+  {n:'qwen2.5-coder:7b',c:'--s2',bk:164,bn:300,rk:204,rn:300,g:13,lo:6,hi:21,vac:2,tok:3.41},
   {n:'qwen3:8b',c:'--s3',bk:149,bn:300,rk:170,rn:300,g:7,lo:-1,hi:15,vac:0,tok:3.64}]},
  {l:'Node',rows:[
   {n:'gemma4:e4b',c:'--s4',bk:89,bn:300,rk:173,rn:300,g:28,lo:20,hi:35,vac:10,tok:4.61},
-  {n:'llama3.1:8b',c:'--s1',bk:104,bn:299,rk:140,rn:299,g:12,lo:4,hi:20,vac:0,tok:4.90},
-  {n:'qwen2.5-coder:7b',c:'--s2',bk:52,bn:298,rk:87,rn:300,g:12,lo:5,hi:18,vac:3,tok:5.85},
+  {n:'llama3.1:8b',c:'--s1',bk:105,bn:300,rk:141,rn:300,g:12,lo:4,hi:20,vac:0,tok:4.89},
+  {n:'qwen2.5-coder:7b',c:'--s2',bk:53,bn:300,rk:87,rn:300,g:11,lo:5,hi:18,vac:3,tok:5.87},
   {n:'qwen3:8b',c:'--s3',bk:149,bn:300,rk:195,rn:300,g:15,lo:7,hi:23,vac:0,tok:3.61}]}
 ];
 (function(){
