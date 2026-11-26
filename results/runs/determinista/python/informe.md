@@ -35,7 +35,7 @@ Ejecuciones inválidas (excluidas de toda tasa): 0
 
 ## Comparación con la tesis
 
-Fuente: tesis de González Sánchez (UNED, 2026), citada en docs/research.md; resumen en docs/research.md. La tesis es de Java: no se comparan otros lenguajes. No se afirma coincidencia; una cifra que no consta publicada se marca "no verificable" y no se sustituye por ninguna estimación.
+Fuente: tesis de máster (UNED, 2026), citada en docs/research.md; resumen en docs/research.md. La tesis es de Java: no se comparan otros lenguajes. No se afirma coincidencia; una cifra que no consta publicada se marca "no verificable" y no se sustituye por ninguna estimación.
 
 No hay ejecuciones de Java: no hay cifra comparable.
 

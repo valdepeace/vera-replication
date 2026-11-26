@@ -11,7 +11,7 @@
 - Ollama 0.40.13, API `/api/chat` con `think: false`, temperatura 0.7, contexto 4096 y máximo de 2048 tokens de salida. Se registran semillas por candidato.
 - Python 3.12.10 con pytest 9.1.1; Node.js 24.8.0.
 
-La tesis que inspira la comparación y la auditoría es la de **María Isabel González Sánchez** (UNED, 2026), sobre generación de tests Java. Este piloto conserva la comparación generate–validate–repair y la auditoría de falsos éxitos, pero usa fixtures sintéticos en Python y JavaScript; no reproduce el experimento de la tesis. Véase [research.md](research.md).
+La tesis que inspira la comparación y la auditoría es una tesis de máster (UNED, 2026) sobre generación de tests Java. Este piloto conserva la comparación generate–validate–repair y la auditoría de falsos éxitos, pero usa fixtures sintéticos en Python y JavaScript; no reproduce el experimento de la tesis. Véase [research.md](research.md).
 
 ## Resultados
 
@@ -59,7 +59,7 @@ Dos de los tres pases de reparación en Node son falsos positivos: los tests gen
 
 En Python no hubo pases. Los tests generados mezclaron errores de expectativas y casos mal especificados; por ejemplo, uno esperaba que `to_wsl_path("C:\\Users\\user\\Documents\\..\\file.txt")` lanzara `ValueError`, aunque la implementación solo valida el formato de ruta absoluta con unidad y conserva los segmentos `..`. La suite expuso un test incorrecto, no un fallo de ejecución del runner.
 
-Este hallazgo endurece el protocolo: además de comprobar ejecución, aserciones y llamada al método focal, la auditoría debe verificar que el runner registra realmente los tests y que las excepciones de aserción llegan al proceso. Es la misma preocupación por falsos éxitos que motiva la auditoría descrita en la tesis de **María Isabel González Sánchez**; aquí apareció en un harness Node generado por el propio modelo.
+Este hallazgo endurece el protocolo: además de comprobar ejecución, aserciones y llamada al método focal, la auditoría debe verificar que el runner registra realmente los tests y que las excepciones de aserción llegan al proceso. Es la misma preocupación por falsos éxitos que motiva la auditoría descrita en la tesis de referencia; aquí apareció en un harness Node generado por el propio modelo.
 
 ## Artefactos
 
